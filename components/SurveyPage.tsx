@@ -43,7 +43,7 @@ function useScrollReveal() {
   useEffect(() => {
     const obs = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) { setVisible(true); obs.disconnect(); }
-    }, { threshold: 0.12 });
+    }, { threshold: 0.08 });
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
   }, []);
@@ -56,13 +56,13 @@ export default function SurveyPage() {
   const [s2, setS2] = useState<Status>("available");
   const [allDone, setAllDone] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [copiedFp, setCopiedFp] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; form: 1 | 2 | "all" }>({ visible: false, form: 1 });
 
   const u1 = fp ? `${URL1}?device_fp=${fp}&form=genre_inclusion` : URL1;
   const u2 = fp ? `${URL2}?device_fp=${fp}&form=vie_etudiants` : URL2;
 
-  /* Nav scroll shadow */
   useEffect(() => {
     const onScroll = () => setNavScrolled(window.scrollY > 10);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -93,10 +93,8 @@ export default function SurveyPage() {
   const sc1 = s1 === "submitted" ? "done" : "active";
   const sc2 = s2 === "submitted" ? "done" : "active";
   const sc3 = allDone ? "done" : "pending";
-
   const doneCount = [s1, s2].filter(s => s === "submitted").length;
 
-  /* Scroll reveal sections */
   const aboutReveal = useScrollReveal();
   const formsReveal = useScrollReveal();
   const tilesReveal = useScrollReveal();
@@ -112,8 +110,10 @@ export default function SurveyPage() {
         boxShadow: navScrolled ? "0 2px 20px rgba(13,27,42,0.10)" : "none",
         transition: "box-shadow 0.3s ease",
       }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 16px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 20px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             <span style={{ color: "#c9a84c", display: "flex", alignItems: "center" }}>
               <IconDiplomaSmall size={22} />
             </span>
@@ -127,7 +127,8 @@ export default function SurveyPage() {
             </div>
           </div>
 
-          <div className="nav-links" style={{ display: "flex", alignItems: "center", gap: 28 }}>
+          {/* Desktop nav links */}
+          <div className="nav-links-desktop" style={{ display: "flex", alignItems: "center", gap: 28 }}>
             {[
               { label: "Accueil", href: "#" },
               { label: "Formulaires", href: "#forms" },
@@ -143,19 +144,20 @@ export default function SurveyPage() {
             ))}
           </div>
 
-          {/* Progress pill in nav */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Right side: pill + CTA */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {doneCount > 0 && (
               <div style={{
                 fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 99,
                 background: "var(--success-bg)", color: "var(--success)",
                 border: "1px solid var(--success-border)",
                 animation: "scaleIn 0.4s cubic-bezier(.22,.68,0,1.2) both",
+                whiteSpace: "nowrap",
               }}>
                 {doneCount}/2 soumis
               </div>
             )}
-            <a href="#forms" style={{
+            <a href="#forms" className="nav-cta-btn" style={{
               fontSize: 12, fontWeight: 600,
               padding: "8px 16px", borderRadius: 99,
               border: "1.5px solid #0d1b2a",
@@ -168,8 +170,48 @@ export default function SurveyPage() {
             >
               Participer →
             </a>
+
+            {/* Hamburger (mobile only) */}
+            <button
+              className="hamburger-btn"
+              onClick={() => setMobileMenuOpen(o => !o)}
+              aria-label="Menu"
+              style={{
+                display: "none",
+                background: "none", border: "none", cursor: "pointer",
+                padding: "6px", borderRadius: 8, color: "#0d1b2a",
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                {mobileMenuOpen
+                  ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+                  : <><line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="17" x2="21" y2="17"/></>
+                }
+              </svg>
+            </button>
           </div>
         </div>
+
+        {/* Mobile dropdown menu */}
+        {mobileMenuOpen && (
+          <div className="mobile-menu" style={{
+            background: "#fff", borderTop: "1px solid #e8ecf2",
+            padding: "12px 20px 16px",
+            display: "flex", flexDirection: "column", gap: 4,
+          }}>
+            {[{ label: "Accueil", href: "#" }, { label: "Formulaires", href: "#forms" }].map(item => (
+              <a key={item.label} href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  fontSize: 15, fontWeight: 600, padding: "10px 12px", borderRadius: 10,
+                  color: item.label === "Formulaires" ? "#a8863e" : "#0d1b2a",
+                  textDecoration: "none", display: "block",
+                  background: item.label === "Formulaires" ? "#fdf6e3" : "transparent",
+                }}
+              >{item.label}</a>
+            ))}
+          </div>
+        )}
       </nav>
 
       {/* ══════════════ HERO ══════════════ */}
@@ -177,10 +219,10 @@ export default function SurveyPage() {
         background: "linear-gradient(120deg, #cce8ff 0%, #ddf0fb 25%, #f5e8ff 60%, #fde8d0 100%)",
         overflow: "hidden",
       }}>
-        <div className="hero-inner" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 16px" }}>
+        <div className="hero-inner" style={{ maxWidth: 1100, margin: "0 auto", padding: "0 20px" }}>
 
           {/* LEFT */}
-          <div className="hero-text animate-fadeUp" style={{ paddingTop: 40, paddingBottom: 40 }}>
+          <div className="hero-text animate-fadeUp" style={{ paddingTop: 48, paddingBottom: 48 }}>
 
             {/* Badges */}
             <div className="hero-badges" style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
@@ -213,11 +255,12 @@ export default function SurveyPage() {
                   display: "flex", alignItems: "center", gap: 10,
                   background: "#fff", borderRadius: 14, padding: "10px 14px",
                   boxShadow: "0 4px 20px rgba(13,27,42,0.10)", border: "1.5px solid #e8d5a3",
+                  minWidth: 0, flex: "1 1 auto",
                 }}>
                   <span className="animate-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#c9a84c", flexShrink: 0 }} />
-                  <div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", color: "#7a9ab8", marginBottom: 2, fontWeight: 600 }}>Appareil lié</div>
-                    <div style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.1em", color: "#0d1b2a", fontWeight: 700 }}>{fp}</div>
+                    <div style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.08em", color: "#0d1b2a", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fp}</div>
                   </div>
                   <button
                     onClick={() => {
@@ -226,12 +269,12 @@ export default function SurveyPage() {
                       setTimeout(() => setCopiedFp(false), 2000);
                     }}
                     style={{
-                      fontSize: 10, fontWeight: 700, padding: "4px 10px", borderRadius: 7,
+                      fontSize: 10, fontWeight: 700, padding: "5px 11px", borderRadius: 7,
                       background: copiedFp ? "var(--success-bg)" : "#fdf6e3",
                       border: copiedFp ? "1px solid var(--success-border)" : "1px solid #e8d5a3",
                       color: copiedFp ? "var(--success)" : "#a8863e",
                       cursor: "pointer", whiteSpace: "nowrap",
-                      transition: "all 0.25s",
+                      transition: "all 0.25s", flexShrink: 0,
                     }}
                   >
                     {copiedFp ? "✓ Copié" : "Copier"}
@@ -257,12 +300,12 @@ export default function SurveyPage() {
             </p>
 
             {/* Progress bar */}
-            <div style={{ marginBottom: 24, maxWidth: 340 }}>
+            <div style={{ marginBottom: 28, maxWidth: 360 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: "#3d5166" }}>Progression</span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: doneCount === 2 ? "var(--success)" : "#a8863e" }}>{doneCount}/2 formulaires</span>
               </div>
-              <div style={{ height: 6, borderRadius: 99, background: "rgba(13,27,42,0.1)", overflow: "hidden" }}>
+              <div style={{ height: 7, borderRadius: 99, background: "rgba(13,27,42,0.1)", overflow: "hidden" }}>
                 <div style={{
                   height: "100%", borderRadius: 99,
                   width: `${(doneCount / 2) * 100}%`,
@@ -274,8 +317,8 @@ export default function SurveyPage() {
 
             <a href="#forms" style={{
               display: "inline-flex", alignItems: "center", gap: 8,
-              fontSize: 13, fontWeight: 600, letterSpacing: "0.04em",
-              padding: "13px 26px", borderRadius: 99,
+              fontSize: 14, fontWeight: 600, letterSpacing: "0.03em",
+              padding: "14px 28px", borderRadius: 99,
               background: "rgba(13,27,42,0.88)", color: "#fff",
               textDecoration: "none",
               boxShadow: "0 4px 20px rgba(13,27,42,0.25)",
@@ -296,7 +339,7 @@ export default function SurveyPage() {
                 alt="Étudiants université"
                 fill
                 style={{ objectFit: "cover", objectPosition: "center top", borderRadius: "20px 20px 0 0" }}
-                sizes="(max-width: 768px) 100vw, 560px"
+                sizes="(max-width: 640px) 100vw, 560px"
                 priority
               />
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(13,27,42,0.10) 0%, transparent 55%)", borderRadius: "20px 20px 0 0" }} />
@@ -310,9 +353,9 @@ export default function SurveyPage() {
         background: "linear-gradient(135deg, #eef6ff 0%, #f0f7ff 50%, #e8f2fb 100%)",
         borderTop: "1px solid #d0e4f5",
         borderBottom: "1px solid #d0e4f5",
-        padding: "22px 16px",
+        padding: "22px 20px",
       }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "center", gap: 56, flexWrap: "wrap" }}>
+        <div className="stats-bar" style={{ maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
           {[
             { label: "Formulaires", value: 2, suffix: "", icon: (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -357,7 +400,7 @@ export default function SurveyPage() {
       </section>
 
       {/* ══════════════ ABOUT ══════════════ */}
-      <section style={{ background: "#fff", padding: "56px 16px" }}>
+      <section style={{ background: "#fff", padding: "56px 20px" }}>
         <div
           ref={aboutReveal.ref}
           className="about-inner"
@@ -374,7 +417,7 @@ export default function SurveyPage() {
               alt="Étudiant à l'université"
               fill
               style={{ objectFit: "cover", objectPosition: "center top" }}
-              sizes="(max-width: 768px) 100vw, 480px"
+              sizes="(max-width: 640px) 100vw, 480px"
             />
             <div style={{ position: "absolute", bottom: 0, left: 0, background: "#fff", padding: "14px 20px", borderTop: "3px solid #c9a84c" }}>
               <div style={{ fontSize: 24, fontWeight: 700, color: "#a8863e", fontFamily: "var(--font-serif)" }}>~10 min</div>
@@ -434,7 +477,7 @@ export default function SurveyPage() {
       </section>
 
       {/* ══════════════ MAIN ══════════════ */}
-      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 16px" }}>
+      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 20px" }}>
 
         {/* All done banner */}
         {allDone && (
@@ -461,8 +504,9 @@ export default function SurveyPage() {
           background: "#fff", borderRadius: 16,
           border: "1px solid var(--border)",
           boxShadow: "var(--shadow-sm)",
-          padding: "14px 16px", marginBottom: 40,
+          padding: "16px 20px", marginBottom: 40,
           overflowX: "auto",
+          gap: 0,
         }}>
           {[
             { state: sc1, label: "Genre & Inclusion", sub: "Formulaire 1" },
@@ -472,7 +516,7 @@ export default function SurveyPage() {
             <div key={i} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <div style={{
-                  width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                  width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 11, fontWeight: 700, transition: "all 0.5s",
                   ...(s.state === "done"
@@ -481,7 +525,7 @@ export default function SurveyPage() {
                     ? { background: "linear-gradient(135deg, var(--gold), var(--gold2))", color: "var(--navy)" }
                     : { background: "var(--border)", color: "var(--ink3)" }),
                 }}>
-                  {s.state === "done" ? <IconCheck size={11} /> : i + 1}
+                  {s.state === "done" ? <IconCheck size={12} /> : i + 1}
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div className="stepper-label" style={{ fontSize: 11, fontWeight: 600, color: s.state === "pending" ? "var(--ink3)" : s.state === "done" ? "var(--success)" : "var(--navy)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.label}</div>
@@ -489,7 +533,7 @@ export default function SurveyPage() {
                 </div>
               </div>
               {i < 2 && (
-                <div style={{ flex: 1, margin: "0 8px", height: 2, borderRadius: 99, minWidth: 16, background: s.state === "done" ? "var(--success)" : "var(--border)", transition: "background 0.7s" }} />
+                <div style={{ flex: 1, margin: "0 8px", height: 2, borderRadius: 99, minWidth: 12, background: s.state === "done" ? "var(--success)" : "var(--border)", transition: "background 0.7s" }} />
               )}
             </div>
           ))}
@@ -559,7 +603,7 @@ export default function SurveyPage() {
                 boxShadow: "var(--shadow-sm)",
                 opacity: tilesReveal.visible ? 1 : 0,
                 transform: tilesReveal.visible ? "none" : "translateY(20px)",
-                transition: `opacity 0.6s ease ${tile.delay}s, transform 0.6s ease ${tile.delay}s, box-shadow 0.3s ease, transform 0.3s ease`,
+                transition: `opacity 0.6s ease ${tile.delay}s, transform 0.6s ease ${tile.delay}s, box-shadow 0.3s ease`,
               }}
             >
               <div style={{ width: 42, height: 42, borderRadius: 11, background: tile.bg, color: tile.color, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
@@ -573,7 +617,7 @@ export default function SurveyPage() {
       </main>
 
       {/* ══════════════ FOOTER ══════════════ */}
-      <footer style={{ marginTop: 48, borderTop: "1px solid #d0e4f5", background: "linear-gradient(135deg, #eef6ff 0%, #f0f7ff 100%)", padding: "32px 16px", textAlign: "center" }}>
+      <footer style={{ marginTop: 48, borderTop: "1px solid #d0e4f5", background: "linear-gradient(135deg, #eef6ff 0%, #f0f7ff 100%)", padding: "32px 20px", textAlign: "center" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 8 }}>
           <span style={{ color: "#c9a84c" }}><IconDiploma size={22} /></span>
           <span style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-serif)", letterSpacing: "0.03em", color: "#1a2e44" }}>
@@ -585,60 +629,115 @@ export default function SurveyPage() {
         </p>
       </footer>
 
-      {/* ══════════════ RESPONSIVE ══════════════ */}
+      {/* ══════════════ RESPONSIVE STYLES ══════════════ */}
       <style>{`
-        .hero-inner { display:flex; align-items:center; min-height:520px; gap:40px; }
+        /* ── Desktop layout ── */
+        .hero-inner { display:flex; align-items:center; min-height:540px; gap:48px; }
         .hero-text { flex:0 0 50%; }
         .hero-title { font-size:52px; }
         .hero-image-wrap { flex:0 0 50%; position:relative; height:480px; align-self:stretch; }
         .about-inner { display:flex; align-items:center; gap:56px; }
-        .about-image-wrap { flex:0 0 42%; position:relative; height:420px; }
+        .about-image-wrap { flex:0 0 42%; position:relative; height:420px; border-radius:20px; overflow:hidden; }
         .about-text { flex:1; }
         .about-text h2 { font-size:38px; }
         .cards-grid { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
         .tiles-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
-        .nav-links { display:flex; }
+        .nav-links-desktop { display:flex; }
+        .hamburger-btn { display:none !important; }
+        .nav-cta-btn { display:inline-flex; }
 
-        @media (max-width:900px) {
-          .hero-title { font-size:38px; }
-          .hero-inner { min-height:420px; gap:24px; }
+        /* ── Tablet ── */
+        @media (max-width:960px) {
+          .hero-title { font-size:40px; }
+          .hero-inner { min-height:440px; gap:28px; }
           .about-text h2 { font-size:30px; }
           .about-inner { gap:32px; }
           .about-image-wrap { height:340px; flex:0 0 40%; }
+          .tiles-grid { grid-template-columns:1fr 1fr; }
+          .stats-bar { gap:28px; }
         }
+
+        /* ── Mobile ── */
         @media (max-width:640px) {
-          .nav-links { display:none; }
-          .hero-inner { flex-direction:column; min-height:unset; padding-top:32px; padding-bottom:0; gap:0; }
-          .hero-text { flex:unset; width:100%; padding-top:0!important; padding-bottom:32px!important; }
-          .hero-title { font-size:30px!important; }
-          .hero-image-wrap { flex:unset; width:100%; height:220px!important; align-self:unset; }
+          /* Nav */
+          .nav-links-desktop { display:none !important; }
+          .hamburger-btn { display:flex !important; }
+          .nav-cta-btn { display:none !important; }
+
+          /* Hero */
+          .hero-inner {
+            flex-direction:column;
+            min-height:unset;
+            padding-top:28px;
+            padding-bottom:0;
+            gap:0;
+          }
+          .hero-text {
+            flex:unset;
+            width:100%;
+            padding-top:0 !important;
+            padding-bottom:28px !important;
+          }
+          .hero-title { font-size:28px !important; }
+          .hero-image-wrap {
+            flex:unset;
+            width:calc(100% + 40px);
+            margin-left:-20px;
+            height:200px !important;
+            align-self:unset;
+          }
+          .hero-badges { gap:8px; }
+
+          /* About */
           .about-inner { flex-direction:column; gap:0; }
-          .about-image-wrap { width:100%; flex:unset; height:240px; margin-bottom:28px; }
+          .about-image-wrap {
+            width:100%;
+            flex:unset;
+            height:220px;
+            margin-bottom:28px;
+            border-radius:16px;
+          }
           .about-text { width:100%; }
-          .about-text h2 { font-size:26px!important; }
+          .about-text h2 { font-size:24px !important; }
+
+          /* Cards */
           .cards-grid { grid-template-columns:1fr; gap:20px; }
+
+          /* Tiles */
           .tiles-grid { grid-template-columns:1fr; gap:14px; }
-          .stepper-label { font-size:10px!important; }
+
+          /* Stepper */
+          .stepper-label { font-size:9px !important; }
+
+          /* Stats */
+          .stats-bar { gap:20px; justify-content:flex-start; }
+        }
+
+        /* ── Very small (360px) ── */
+        @media (max-width:380px) {
+          .hero-title { font-size:24px !important; }
+          .hero-image-wrap { height:160px !important; }
         }
       `}</style>
 
-      {/* ══════════════ TOAST DE CONFIRMATION ══════════════ */}
+      {/* ══════════════ TOAST ══════════════ */}
       <div style={{
         position: "fixed",
-        bottom: 28,
+        bottom: 24,
         left: "50%",
         transform: `translateX(-50%) translateY(${toast.visible ? "0" : "20px"})`,
         opacity: toast.visible ? 1 : 0,
         pointerEvents: toast.visible ? "auto" : "none",
         transition: "opacity 0.4s cubic-bezier(.22,.68,0,1.2), transform 0.4s cubic-bezier(.22,.68,0,1.2)",
         zIndex: 9999,
-        minWidth: 320,
+        minWidth: 300,
         maxWidth: "calc(100vw - 32px)",
+        width: "max-content",
       }}>
         <div style={{
           background: toast.form === "all" ? "linear-gradient(135deg, #1a3d2b 0%, #2d6a4f 100%)" : "linear-gradient(135deg, #0d1b2a 0%, #1a2e44 100%)",
           borderRadius: 18,
-          padding: "18px 22px",
+          padding: "16px 20px",
           display: "flex",
           alignItems: "center",
           gap: 14,
@@ -648,14 +747,13 @@ export default function SurveyPage() {
           border: toast.form === "all" ? "1px solid rgba(183,221,200,0.3)" : "1px solid rgba(201,168,76,0.3)",
         }}>
           <div style={{
-            width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
+            width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
             background: toast.form === "all" ? "rgba(255,255,255,0.15)" : "rgba(201,168,76,0.2)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             {toast.form === "all" ? (
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#b7ddc8" }}>
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
             ) : (
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#c9a84c" }}>
@@ -664,19 +762,13 @@ export default function SurveyPage() {
             )}
           </div>
           <div>
-            <div style={{
-              fontSize: 14, fontWeight: 700, color: "#fff",
-              fontFamily: "var(--font-serif)",
-              marginBottom: 3, letterSpacing: "-0.01em",
-            }}>
-              {toast.form === "all"
-                ? "Merci pour votre participation !"
-                : `Formulaire ${toast.form} enregistré !`}
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: "var(--font-serif)", marginBottom: 3, letterSpacing: "-0.01em" }}>
+              {toast.form === "all" ? "Merci pour votre participation !" : `Formulaire ${toast.form} enregistré !`}
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.72)", lineHeight: 1.5 }}>
               {toast.form === "all"
-                ? "Vos deux réponses ont été soumises anonymement. À bientôt !"
-                : "Merci pour avoir participé à cette enquête. À bientôt pour le deuxième formulaire !"}
+                ? "Vos deux réponses ont été soumises anonymement."
+                : "Merci ! Pensez à remplir le deuxième formulaire."}
             </div>
           </div>
           <button
@@ -697,11 +789,7 @@ export default function SurveyPage() {
             ×
           </button>
         </div>
-        <div style={{
-          position: "absolute", bottom: 0, left: 0, right: 0,
-          height: 3, borderRadius: "0 0 18px 18px",
-          overflow: "hidden",
-        }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, borderRadius: "0 0 18px 18px", overflow: "hidden" }}>
           <div style={{
             height: "100%",
             background: toast.form === "all" ? "rgba(183,221,200,0.6)" : "rgba(201,168,76,0.6)",
