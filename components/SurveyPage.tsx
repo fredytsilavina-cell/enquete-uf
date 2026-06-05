@@ -3,15 +3,23 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import FormCard from "./FormCard";
 import { useFingerprint } from "./FingerprintProvider";
+import { supabase } from "@/lib/supabaseClient";
 import {
-  IconCheck, IconDiploma, IconDiplomaSmall, IconShield,
+  IconArrowRight, IconCheck, IconDiploma, IconDiplomaSmall, IconShield,
   IconStar, IconPhone, IconVolunteer, IconDoc,
 } from "./icons";
 
-const URL1 = "https://ee.kobotoolbox.org/x/zHy4iTMt";
-const URL2 = "https://ee.kobotoolbox.org/x/FO24PkpW";
-
 type Status = "available" | "submitted";
+
+function appendQuery(url: string, params: Record<string, string>) {
+  try {
+    const parsed = new URL(url);
+    Object.entries(params).forEach(([key, value]) => parsed.searchParams.set(key, value));
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
 
 /* ── Animated counter ── */
 function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
@@ -59,9 +67,43 @@ export default function SurveyPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [copiedFp, setCopiedFp] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; form: 1 | 2 | "all" }>({ visible: false, form: 1 });
+  const [formUrls, setFormUrls] = useState({ url1: "", url2: "" });
+  const [configLoaded, setConfigLoaded] = useState(false);
 
-  const u1 = fp ? `${URL1}?device_fp=${fp}&form=genre_inclusion` : URL1;
-  const u2 = fp ? `${URL2}?device_fp=${fp}&form=vie_etudiants` : URL2;
+  const u1 = formUrls.url1
+    ? appendQuery(formUrls.url1, fp ? { device_fp: fp, form: "genre_inclusion" } : {})
+    : "";
+  const u2 = formUrls.url2
+    ? appendQuery(formUrls.url2, fp ? { device_fp: fp, form: "vie_etudiants" } : {})
+    : "";
+  const disabled1 = !formUrls.url1;
+  const disabled2 = !formUrls.url2;
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      const { data: rows, error } = await supabase
+        .from("config")
+        .select("id,value")
+        .in('id', ['url1','url2']);
+
+      if (error && error.code !== "PGRST116") {
+        console.error(error.message);
+      }
+
+      if (Array.isArray(rows)) {
+        const nextUrl1 = rows.find((row: any) => row.id === 'url1')?.value;
+        const nextUrl2 = rows.find((row: any) => row.id === 'url2')?.value;
+        setFormUrls({
+          url1: nextUrl1 ?? "",
+          url2: nextUrl2 ?? "",
+        });
+      }
+
+      setConfigLoaded(true);
+    };
+
+    loadConfig();
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setNavScrolled(window.scrollY > 10);
@@ -75,19 +117,17 @@ export default function SurveyPage() {
   }
 
   function handleOpenF1() {
-    if (s1 !== "submitted") {
-      setS1("submitted");
-      if (s2 === "submitted") { setAllDone(true); showToast("all"); }
-      else showToast(1);
-    }
+    if (disabled1 || s1 === "submitted") return;
+    setS1("submitted");
+    if (s2 === "submitted") { setAllDone(true); showToast("all"); }
+    else showToast(1);
   }
 
   function handleOpenF2() {
-    if (s2 !== "submitted") {
-      setS2("submitted");
-      if (s1 === "submitted") { setAllDone(true); showToast("all"); }
-      else showToast(2);
-    }
+    if (disabled2 || s2 === "submitted") return;
+    setS2("submitted");
+    if (s1 === "submitted") { setAllDone(true); showToast("all"); }
+    else showToast(2);
   }
 
   const sc1 = s1 === "submitted" ? "done" : "active";
@@ -157,6 +197,26 @@ export default function SurveyPage() {
                 {doneCount}/2 soumis
               </div>
             )}
+            <a href="/admin/login" className="nav-cta-btn" style={{
+              fontSize: 12, fontWeight: 600,
+              padding: "8px 16px", borderRadius: 99,
+              border: "1.5px solid transparent",
+              color: "#fff", background: "#0d1b2a",
+              textDecoration: "none", whiteSpace: "nowrap",
+              transition: "background 0.2s, color 0.2s",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+              onMouseEnter={e => { (e.target as HTMLElement).style.background = "#0f2746"; }}
+              onMouseLeave={e => { (e.target as HTMLElement).style.background = "#0d1b2a"; }}
+            >
+              Connexion
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </a>
             <a href="#forms" className="nav-cta-btn" style={{
               fontSize: 12, fontWeight: 600,
               padding: "8px 16px", borderRadius: 99,
@@ -164,11 +224,18 @@ export default function SurveyPage() {
               color: "#0d1b2a", background: "transparent",
               textDecoration: "none", whiteSpace: "nowrap",
               transition: "background 0.2s, color 0.2s",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
             }}
               onMouseEnter={e => { (e.target as HTMLElement).style.background = "#0d1b2a"; (e.target as HTMLElement).style.color = "#fff"; }}
               onMouseLeave={e => { (e.target as HTMLElement).style.background = "transparent"; (e.target as HTMLElement).style.color = "#0d1b2a"; }}
             >
-              Participer →
+              Participer
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
             </a>
 
             {/* Hamburger (mobile only) */}
@@ -327,7 +394,8 @@ export default function SurveyPage() {
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 30px rgba(13,27,42,0.35)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(13,27,42,0.25)"; }}
             >
-              Commencer les formulaires →
+              Commencer les formulaires
+              <IconArrowRight size={16} />
             </a>
           </div>
 
@@ -470,7 +538,8 @@ export default function SurveyPage() {
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(13,27,42,0.12)"}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(13,27,42,0.06)"}
             >
-              Accéder aux formulaires →
+              Accéder aux formulaires
+              <IconArrowRight size={16} />
             </a>
           </div>
         </div>
@@ -564,6 +633,8 @@ export default function SurveyPage() {
             imageAlt="Groupe d'étudiants"
             url={u1}
             status={s1}
+            disabled={disabled1}
+            disabledLabel={configLoaded ? "Lien en cours de configuration" : "Chargement..."}
             onOpen={handleOpenF1}
           />
           <FormCard
@@ -575,6 +646,8 @@ export default function SurveyPage() {
             imageAlt="Bibliothèque universitaire"
             url={u2}
             status={s2}
+            disabled={disabled2}
+            disabledLabel={configLoaded ? "Lien en cours de configuration" : "Chargement..."}
             onOpen={handleOpenF2}
           />
         </div>

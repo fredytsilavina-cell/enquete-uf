@@ -12,12 +12,15 @@ interface FormCardProps {
   imageAlt: string;
   url: string;
   status: "available" | "submitted";
+  disabled?: boolean;
+  disabledLabel?: string;
   onOpen: () => void;
 }
 
 export default function FormCard({
   number, title, description, topics,
-  imageSrc, imageAlt, url, status, onOpen,
+  imageSrc, imageAlt, url, status, disabled, disabledLabel,
+  onOpen,
 }: FormCardProps) {
   const isDone = status === "submitted";
   const [hovered, setHovered] = useState(false);
@@ -25,7 +28,7 @@ export default function FormCard({
   return (
     <div
       className="group relative flex flex-col rounded-3xl overflow-hidden bg-white"
-      onMouseEnter={() => !isDone && setHovered(true)}
+      onMouseEnter={() => !isDone && !disabled && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         boxShadow: isDone
@@ -36,7 +39,7 @@ export default function FormCard({
         border: isDone
           ? "1.5px solid var(--success-border)"
           : "1.5px solid var(--gold-border)",
-        transform: !isDone && hovered ? "translateY(-6px)" : "translateY(0)",
+        transform: !isDone && !disabled && hovered ? "translateY(-6px)" : "translateY(0)",
         transition: "transform 0.32s cubic-bezier(.22,.68,0,1.2), box-shadow 0.32s ease",
         opacity: isDone ? 0.88 : 1,
       }}
@@ -84,9 +87,9 @@ export default function FormCard({
         <div style={{
           position: "absolute", top: 14, right: 14,
           display: "flex", alignItems: "center", gap: 6,
-          background: isDone ? "rgba(45,106,79,0.92)" : "rgba(255,255,255,0.15)",
+          background: isDone ? "rgba(45,106,79,0.92)" : disabled ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.15)",
           border: isDone ? "none" : "1px solid rgba(255,255,255,0.3)",
-          color: "#fff",
+          color: isDone ? "#fff" : disabled ? "#7b8794" : "#fff",
           borderRadius: 99, padding: "5px 13px",
           fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
           backdropFilter: "blur(10px)",
@@ -99,7 +102,7 @@ export default function FormCard({
               </svg>
               Soumis
             </>
-          ) : "Disponible"}
+          ) : disabled ? "En configuration" : "Disponible"}
         </div>
 
         {/* Title on image — available state */}
@@ -210,6 +213,22 @@ export default function FormCard({
               </div>
             </div>
           </div>
+        ) : disabled ? (
+          <button
+            type="button"
+            disabled
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              fontSize: 13, fontWeight: 600, padding: "14px 16px", borderRadius: 12,
+              textDecoration: "none", letterSpacing: "0.02em",
+              background: "#f1f5f9",
+              color: "#7b8794",
+              border: "1px solid #d8e2ec",
+              cursor: "not-allowed",
+            }}
+          >
+            {disabledLabel ?? "Lien en cours de configuration"}
+          </button>
         ) : (
           /* ── Available state: clickable gold button ── */
           <a
