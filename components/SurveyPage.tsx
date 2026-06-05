@@ -68,34 +68,74 @@ export default function SurveyPage() {
   const [copiedFp, setCopiedFp] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; form: 1 | 2 | "all" }>({ visible: false, form: 1 });
   const [formUrls, setFormUrls] = useState({ url1: "", url2: "" });
+  const [formTitles, setFormTitles] = useState({ title1: "Genre & Inclusion", title2: "Vie des Etudiants" });
   const [configLoaded, setConfigLoaded] = useState(false);
 
-  const u1 = formUrls.url1
-    ? appendQuery(formUrls.url1, fp ? { device_fp: fp, form: "genre_inclusion" } : {})
-    : "";
-  const u2 = formUrls.url2
-    ? appendQuery(formUrls.url2, fp ? { device_fp: fp, form: "vie_etudiants" } : {})
-    : "";
-  const disabled1 = !formUrls.url1;
-  const disabled2 = !formUrls.url2;
+  // Construit le return_url pour que KoboToolbox redirige ici après soumission réelle
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const u1 = formUrls.url1 && fp
+    ? appendQuery(formUrls.url1, {
+        device_fp: fp,
+        form: "genre_inclusion",
+        return_url: `${origin}/api/confirm-submit?fp=${encodeURIComponent(fp)}&form=f1`,
+      })
+    : formUrls.url1 || "";
+  const u2 = formUrls.url2 && fp
+    ? appendQuery(formUrls.url2, {
+        device_fp: fp,
+        form: "vie_etudiants",
+        return_url: `${origin}/api/confirm-submit?fp=${encodeURIComponent(fp)}&form=f2`,
+      })
+    : formUrls.url2 || "";
+  const disabled1 = configLoaded && !formUrls.url1;
+  const disabled2 = configLoaded && !formUrls.url2;
+
+  // ── Restauration du statut : localStorage (rapide) + Supabase (durable) ──
+  useEffect(() => {
+    if (!fp || typeof window === "undefined") return;
+
+    // 1. localStorage — affichage immédiat, évite le flash au rechargement
+    const ls1 = localStorage.getItem(`submitted_f1_${fp}`) === "1";
+    const ls2 = localStorage.getItem(`submitted_f2_${fp}`) === "1";
+    if (ls1) setS1("submitted");
+    if (ls2) setS2("submitted");
+    if (ls1 && ls2) setAllDone(true);
+
+    // 2. Supabase — source de vérité, résiste au vidage du cache / changement de navigateur
+    supabase
+      .from("device_statuses")
+      .select("form_id")
+      .eq("fp", fp)
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        const db1 = data.some((r: any) => r.form_id === "f1");
+        const db2 = data.some((r: any) => r.form_id === "f2");
+        if (db1) { setS1("submitted"); localStorage.setItem(`submitted_f1_${fp}`, "1"); }
+        if (db2) { setS2("submitted"); localStorage.setItem(`submitted_f2_${fp}`, "1"); }
+        if (db1 && db2) setAllDone(true);
+      });
+  }, [fp]);
 
   useEffect(() => {
     const loadConfig = async () => {
       const { data: rows, error } = await supabase
         .from("config")
         .select("id,value")
-        .in('id', ['url1','url2']);
+        .in('id', ['url1','url2','title1','title2']);
 
       if (error && error.code !== "PGRST116") {
         console.error(error.message);
       }
 
       if (Array.isArray(rows)) {
-        const nextUrl1 = rows.find((row: any) => row.id === 'url1')?.value;
-        const nextUrl2 = rows.find((row: any) => row.id === 'url2')?.value;
-        setFormUrls({
-          url1: nextUrl1 ?? "",
-          url2: nextUrl2 ?? "",
+        const nextUrl1 = rows.find((row: any) => row.id === 'url1')?.value ?? "";
+        const nextUrl2 = rows.find((row: any) => row.id === 'url2')?.value ?? "";
+        const nextTitle1 = rows.find((row: any) => row.id === 'title1')?.value;
+        const nextTitle2 = rows.find((row: any) => row.id === 'title2')?.value;
+        setFormUrls({ url1: nextUrl1, url2: nextUrl2 });
+        setFormTitles({
+          title1: nextTitle1 ?? "Genre & Inclusion",
+          title2: nextTitle2 ?? "Vie des Etudiants",
         });
       }
 
@@ -103,6 +143,17 @@ export default function SurveyPage() {
     };
 
     loadConfig();
+
+    // ── Rafraîchissement temps réel : si admin modifie les URLs,
+    //    la page publique se met à jour sans rechargement ──
+    const channel = supabase
+      .channel("config-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "config" }, () => {
+        loadConfig();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => {
@@ -111,23 +162,48 @@ export default function SurveyPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // ── Retour depuis KoboToolbox : lit ?confirmed=f1|f2 pour marquer comme soumis ──
+  // KoboToolbox redirige ici via return_url après la vraie soumission Enketo.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const confirmed = params.get("confirmed"); // "f1" ou "f2"
+    const confirmedFp = params.get("fp");
+    if (!confirmed || !confirmedFp || !["f1", "f2"].includes(confirmed)) return;
+
+    // Marque localement et dans localStorage
+    if (confirmed === "f1") {
+      setS1("submitted");
+      localStorage.setItem(`submitted_f1_${confirmedFp}`, "1");
+      showToast(1);
+    } else {
+      setS2("submitted");
+      localStorage.setItem(`submitted_f2_${confirmedFp}`, "1");
+      showToast(2);
+    }
+
+    // Nettoie l'URL (retire ?confirmed=... pour ne pas rejouer au rafraîchissement)
+    window.history.replaceState({}, "", window.location.pathname);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function showToast(form: 1 | 2 | "all") {
     setToast({ visible: true, form });
     setTimeout(() => setToast(t => ({ ...t, visible: false })), 6000);
   }
 
   function handleOpenF1() {
+    // Ne pas marquer comme soumis ici : le marquage se fait UNIQUEMENT quand
+    // KoboToolbox redirige vers /api/confirm-submit après la vraie soumission Enketo.
+    // Si le navigateur bloque la redirection, le webhook + la vérif Supabase au
+    // prochain chargement prendront le relais.
     if (disabled1 || s1 === "submitted") return;
-    setS1("submitted");
-    if (s2 === "submitted") { setAllDone(true); showToast("all"); }
-    else showToast(1);
   }
 
   function handleOpenF2() {
+    // Idem handleOpenF1 — le marquage se fait via /api/confirm-submit après
+    // la vraie soumission Enketo, pas au simple clic sur le lien.
     if (disabled2 || s2 === "submitted") return;
-    setS2("submitted");
-    if (s1 === "submitted") { setAllDone(true); showToast("all"); }
-    else showToast(2);
   }
 
   const sc1 = s1 === "submitted" ? "done" : "active";
@@ -344,7 +420,14 @@ export default function SurveyPage() {
                       transition: "all 0.25s", flexShrink: 0,
                     }}
                   >
-                    {copiedFp ? "✓ Copié" : "Copier"}
+                    {copiedFp ? (
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:4,verticalAlign:"middle"}}>
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Copié
+                      </>
+                    ) : "Copier"}
                   </button>
                 </div>
               )}
@@ -578,8 +661,8 @@ export default function SurveyPage() {
           gap: 0,
         }}>
           {[
-            { state: sc1, label: "Genre & Inclusion", sub: "Formulaire 1" },
-            { state: sc2, label: "Vie des Étudiants", sub: "Formulaire 2" },
+            { state: sc1, label: formTitles.title1, sub: "Formulaire 1" },
+            { state: sc2, label: formTitles.title2, sub: "Formulaire 2" },
             { state: sc3, label: "Participation complète", sub: "Terminé" },
           ].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
@@ -626,7 +709,7 @@ export default function SurveyPage() {
         <div id="forms" className="cards-grid animate-fadeUp" style={{ marginBottom: 40 }}>
           <FormCard
             number={1}
-            title="Genre & Inclusion"
+            title={formTitles.title1}
             description="Ce formulaire porte sur les perceptions et expériences liées au genre, à l'égalité et à l'inclusion au sein de l'université."
             topics={["Égalité de genre", "Inclusion", "Perceptions", "Campus"]}
             imageSrc="/form1.webp"
@@ -634,12 +717,11 @@ export default function SurveyPage() {
             url={u1}
             status={s1}
             disabled={disabled1}
-            disabledLabel={configLoaded ? "Lien en cours de configuration" : "Chargement..."}
             onOpen={handleOpenF1}
           />
           <FormCard
             number={2}
-            title="Vie des Étudiants"
+            title={formTitles.title2}
             description="Ce formulaire explore les conditions de vie, le bien-être et les expériences quotidiennes des étudiants à l'université."
             topics={["Bien-être", "Logement", "Vie sociale", "Parcours"]}
             imageSrc="/form2.webp"
@@ -647,7 +729,6 @@ export default function SurveyPage() {
             url={u2}
             status={s2}
             disabled={disabled2}
-            disabledLabel={configLoaded ? "Lien en cours de configuration" : "Chargement..."}
             onOpen={handleOpenF2}
           />
         </div>

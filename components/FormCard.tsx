@@ -87,9 +87,9 @@ export default function FormCard({
         <div style={{
           position: "absolute", top: 14, right: 14,
           display: "flex", alignItems: "center", gap: 6,
-          background: isDone ? "rgba(45,106,79,0.92)" : disabled ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.15)",
-          border: isDone ? "none" : "1px solid rgba(255,255,255,0.3)",
-          color: isDone ? "#fff" : disabled ? "#7b8794" : "#fff",
+          background: isDone ? "rgba(45,106,79,0.92)" : disabled ? "rgba(220,38,38,0.85)" : "rgba(255,255,255,0.15)",
+          border: isDone ? "none" : disabled ? "none" : "1px solid rgba(255,255,255,0.3)",
+          color: isDone ? "#fff" : disabled ? "#fff" : "#fff",
           borderRadius: 99, padding: "5px 13px",
           fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
           backdropFilter: "blur(10px)",
@@ -102,7 +102,7 @@ export default function FormCard({
               </svg>
               Soumis
             </>
-          ) : disabled ? "En configuration" : "Disponible"}
+          ) : disabled ? "Indisponible" : "Disponible"}
         </div>
 
         {/* Title on image — available state */}
@@ -214,21 +214,62 @@ export default function FormCard({
             </div>
           </div>
         ) : disabled ? (
-          <button
-            type="button"
-            disabled
-            style={{
-              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              fontSize: 13, fontWeight: 600, padding: "14px 16px", borderRadius: 12,
-              textDecoration: "none", letterSpacing: "0.02em",
-              background: "#f1f5f9",
-              color: "#7b8794",
-              border: "1px solid #d8e2ec",
-              cursor: "not-allowed",
-            }}
-          >
-            {disabledLabel ?? "Lien en cours de configuration"}
-          </button>
+          <div style={{
+            width: "100%", borderRadius: 14, overflow: "hidden",
+            border: "1px solid #fecaca",
+          }}>
+            {/* Bannière "formulaire indisponible" */}
+            <div style={{
+              display: "flex", alignItems: "flex-start", gap: 12,
+              padding: "14px 18px",
+              background: "linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%)",
+            }}>
+              {/* Icône alerte */}
+              <div style={{
+                width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                background: "#fee2e2", color: "#dc2626",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                marginTop: 1,
+              }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b", marginBottom: 4 }}>
+                  Formulaire indisponible
+                </div>
+                <div style={{ fontSize: 12, color: "#dc2626", lineHeight: 1.55 }}>
+                  Ce formulaire n&apos;est pas encore activé par l&apos;administrateur. La page se met à jour automatiquement dès qu&apos;il sera ouvert.
+                </div>
+              </div>
+            </div>
+            {/* Barre statut temps réel */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "8px 18px",
+              background: "#fef2f2",
+              borderTop: "1px solid #fecaca",
+            }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: "#ef4444",
+                display: "inline-block",
+                animation: "pulse-unavail 2s infinite",
+              }} />
+              <span style={{ fontSize: 11, color: "#b91c1c", fontWeight: 600 }}>
+                En attente d&apos;activation · Synchronisation en temps réel
+              </span>
+            </div>
+            <style>{`
+              @keyframes pulse-unavail {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.4; transform: scale(0.8); }
+              }
+            `}</style>
+          </div>
         ) : (
           /* ── Available state: clickable gold button ── */
           <a

@@ -232,9 +232,18 @@ body {
 }
 
 /* ── Admin layout */
-.admin-shell { min-height: 100vh; background: linear-gradient(180deg, #f8fbff 0%, #fdf8f2 48%, #ffffff 100%); }
-.admin-shell-wrapper { display: flex; gap: 0; }
-.admin-shell-content { flex: 1; max-width: none; padding: 20px; }
+.admin-shell { min-height: 100vh; background: #f4f6f9; }
+.admin-shell-wrapper { display: flex; min-height: calc(100vh - 65px); }
+.admin-shell-content { flex: 1; max-width: none; padding: 24px 32px; overflow-x: hidden; }
+@media (max-width: 900px) {
+  .admin-shell-content { padding: 18px 20px; }
+}
+@media (max-width: 600px) {
+  .admin-shell-content { padding: 14px 14px; }
+}
+@media (max-width: 420px) {
+  .admin-shell-content { padding: 12px 10px; }
+}
 .admin-header { position: sticky; top: 0; z-index: 60; background: rgba(255,255,255,0.92); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(13,27,42,0.08); }
 .admin-header-inner { max-width: 1100px; margin: 0 auto; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .admin-brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }

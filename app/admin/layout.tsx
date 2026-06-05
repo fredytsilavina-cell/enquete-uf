@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import AdminHeader from "@/components/AdminHeader";
-import AdminSidebar from "@/components/AdminSidebar";
+import AdminShell from "@/components/AdminShell";
 
 export const metadata = {
   title: "Admin — Enquête Étudiante UF",
@@ -8,13 +7,5 @@ export const metadata = {
 };
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="admin-shell">
-      <AdminHeader />
-      <div className="admin-shell-wrapper">
-        <AdminSidebar />
-        <div className="admin-shell-content">{children}</div>
-      </div>
-    </div>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

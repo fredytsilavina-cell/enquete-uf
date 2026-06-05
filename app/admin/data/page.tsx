@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { ModernButton } from "@/components/ModernButton";
-import { ModernTable } from "@/components/ModernTable";
 import { SearchFilter } from "@/components/SearchFilter";
+import { displayKoboValue } from "@/lib/koboDecoder";
 
 interface Submission {
   id: string;
@@ -14,257 +13,518 @@ interface Submission {
   payload: any;
 }
 
+type SyncStatus = "idle" | "syncing" | "success" | "error";
+
+// ── Utilitaires ────────────────────────────────────────────────────────────
+
+// Clés internes Kobo à masquer dans le tableau
+const HIDDEN_KEYS = new Set([
+  "formhub/uuid", "meta/instanceID", "meta/rootUuid",
+  "_attachments", "_geolocation", "_tags", "_notes",
+  "_validation_status", "_status", "__version__",
+  "_xform_id_string", "_uuid", "instanceID",
+]);
+
+// Clés à toujours afficher en premier
+const PRIORITY_KEYS = ["_id", "_submission_time", "start", "end", "device_fp"];
+
+// Décode les valeurs Kobo en utilisant le décodeur robuste avec table de mapping
+function decodeValue(value: any): string {
+  return displayKoboValue(value);
+}
+
+// Transforme une clé Kobo en label lisible
+// "G1_Pensez_vous_que_ns_votre_universit_" → "G1 – Pensez vous que ns votre universit"
+function humanizeKey(key: string): string {
+  if (key === "_id") return "ID Kobo";
+  if (key === "_submission_time") return "Date soumission";
+  if (key === "start") return "Début";
+  if (key === "end") return "Fin";
+  if (key === "device_fp") return "Appareil";
+  // Retire les underscores de fin, remplace les _ par espace
+  return key
+    .replace(/^_+/, "")
+    .replace(/_+$/, "")
+    .replace(/_+/g, " ")
+    .trim();
+}
+
+// Collecte toutes les clés visibles depuis un tableau de soumissions
+function collectKeys(submissions: Submission[]): string[] {
+  const seen = new Set<string>();
+  for (const s of submissions) {
+    for (const k of Object.keys(s.payload || {})) {
+      if (!HIDDEN_KEYS.has(k)) seen.add(k);
+    }
+  }
+  // Prioritaires d'abord, puis le reste trié
+  const priority = PRIORITY_KEYS.filter(k => seen.has(k));
+  const rest = [...seen].filter(k => !PRIORITY_KEYS.includes(k)).sort();
+  return [...priority, ...rest];
+}
+
+// ── Composant principal ────────────────────────────────────────────────────
+
 export default function AdminDataPage() {
   const router = useRouter();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"date-desc" | "date-asc" | "form">("date-desc");
   const [currentPage, setCurrentPage] = useState(1);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedForm, setSelectedForm] = useState("");
   const [dateRange, setDateRange] = useState("");
-  const itemsPerPage = 20;
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  // Quel formulaire est affiché dans le tableau (pour colonnes dynamiques)
+  const [activeTab, setActiveTab] = useState<"all" | "genre_inclusion" | "vie_etudiants">("all");
+  // Détail d'une ligne (modal)
+  const [detailRow, setDetailRow] = useState<Submission | null>(null);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        router.replace("/admin/login");
-        return;
-      }
-
-      await loadSubmissions({ page: 1, form: selectedForm, dateRange, search: searchQuery });
+      if (!data.session) { router.replace("/admin/login"); return; }
+      await loadSubmissions({ page: 1 });
       setLoading(false);
     };
-
     init();
   }, [router]);
 
   async function loadSubmissions(options: {
-    page: number;
-    form?: string;
-    dateRange?: string;
-    search?: string;
+    page: number; form?: string; dateRange?: string; search?: string;
   }) {
     setLoading(true);
-    const qs = new URLSearchParams({ page: String(options.page), pageSize: '100' });
-    if (options.form) qs.set('form', options.form);
-    if (options.dateRange) qs.set('dateRange', options.dateRange);
-    if (options.search) qs.set('search', options.search);
-
+    const qs = new URLSearchParams({ page: String(options.page), pageSize: String(PAGE_SIZE) });
+    if (options.form) qs.set("form", options.form);
+    if (options.dateRange) qs.set("dateRange", options.dateRange);
+    if (options.search) qs.set("search", options.search);
     try {
       const res = await fetch(`/api/submissions?${qs.toString()}`);
       const json = await res.json();
       setSubmissions(json.data || []);
+      setTotalCount(json.count || 0);
       setCurrentPage(options.page);
       setError(null);
-    } catch (e) {
-      console.error('Erreur fetch submissions:', e);
-      setError('Impossible de charger les donnees.');
+    } catch {
+      setError("Impossible de charger les données.");
     } finally {
       setLoading(false);
     }
   }
 
+  async function syncFromKobo() {
+    setSyncStatus("syncing");
+    setSyncMessage(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Non authentifié");
+      const res = await fetch("/api/admin/sync", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erreur serveur");
+      setSyncStatus("success");
+      const deleted = json.deleted ?? 0;
+      const detail = json.form1 !== undefined
+        ? ` (Formulaire 1: ${json.form1}, Formulaire 2: ${json.form2}${deleted > 0 ? `, 🗑 ${deleted} supprimée${deleted > 1 ? "s" : ""}` : ""})`
+        : "";
+      setSyncMessage(
+        (json.count === 0 && deleted === 0)
+          ? "Sync terminée — aucune soumission. Vérifiez les URLs data et le token dans Paramètres."
+          : (json.message || "Synchronisation réussie") + detail
+      );
+      await loadSubmissions({ page: 1, form: selectedForm, dateRange, search: searchQuery });
+      setTimeout(() => { setSyncStatus("idle"); setSyncMessage(null); }, 5000);
+    } catch (e: any) {
+      setSyncStatus("error");
+      setSyncMessage(e.message || "Erreur de synchronisation");
+      setTimeout(() => { setSyncStatus("idle"); setSyncMessage(null); }, 5000);
+    }
+  }
+
   function downloadExcel() {
-    const qs = new URLSearchParams({ format: 'xlsx', pageSize: '1000' });
-    if (selectedForm) qs.set('form', selectedForm);
-    if (dateRange) qs.set('dateRange', dateRange);
-    if (searchQuery) qs.set('search', searchQuery);
+    const qs = new URLSearchParams({ format: "xlsx" });
+    if (selectedForm) qs.set("form", selectedForm);
+    if (dateRange) qs.set("dateRange", dateRange);
+    if (searchQuery) qs.set("search", searchQuery);
     window.open(`/api/submissions?${qs.toString()}`);
   }
 
-  const refreshSubmissions = () => {
-    loadSubmissions({ page: 1, form: selectedForm, dateRange, search: searchQuery });
-  };
+  // Filtrage par onglet côté client (les données chargées sont déjà filtrées côté API)
+  const displayedSubmissions = useMemo(() => {
+    if (activeTab === "all") return submissions;
+    return submissions.filter(s => String(s.form).includes(
+      activeTab === "genre_inclusion" ? "genre" : "vie"
+    ));
+  }, [submissions, activeTab]);
 
-  const sortedSubmissions = [...submissions].sort((a, b) => {
-    if (sortBy === "date-desc") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    if (sortBy === "date-asc") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-    if (sortBy === "form") return (a.form || "").localeCompare(b.form || "");
-    return 0;
-  });
+  // Colonnes dynamiques : calculées depuis les données affichées
+  const dynamicKeys = useMemo(() => collectKeys(displayedSubmissions), [displayedSubmissions]);
 
-  const paginatedSubmissions = sortedSubmissions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(sortedSubmissions.length / itemsPerPage);
+  const form1Count = submissions.filter(s => String(s.form).includes("genre")).length;
+  const form2Count = submissions.filter(s => String(s.form).includes("vie")).length;
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    loadSubmissions({ page: 1, form: selectedForm, dateRange, search: query });
-  };
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  const handleFilterChange = (filters: { form?: string; dateRange?: string }) => {
-    const nextForm = filters.form || "";
-    const nextDateRange = filters.dateRange || "";
-    setSelectedForm(nextForm);
-    setDateRange(nextDateRange);
-    loadSubmissions({ page: 1, form: nextForm, dateRange: nextDateRange, search: searchQuery });
-  };
+  function changePage(p: number) {
+    loadSubmissions({ page: p, form: selectedForm, dateRange, search: searchQuery });
+  }
 
-  const handleSort = (key: string) => {
-    const nextSort = key === "created_at" ? (sortBy === "date-asc" ? "date-desc" : "date-asc") : "form";
-    setSortBy(nextSort);
-  };
+  function handleSearch(q: string) {
+    setSearchQuery(q);
+    loadSubmissions({ page: 1, form: selectedForm, dateRange, search: q });
+  }
 
-  const columns = [
-    {
-      key: "id",
-      label: "ID",
-      width: "120px",
-      render: (value: string) => (
-        <span className="font-mono text-xs font-semibold text-ink3">{value.substring(0, 8)}</span>
-      ),
-    },
-    {
-      key: "form",
-      label: "Formulaire",
-      render: (value: string) => (
-        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-          value === "genre_inclusion"
-            ? "bg-green-100 text-green-700"
-            : "bg-purple-100 text-purple-700"
-        }`}>
-          {value === "genre_inclusion" ? "Genre & Inclusion" : "Vie des Étudiants"}
-        </span>
-      ),
-    },
-    {
-      key: "created_at",
-      label: "Date",
-      render: (value: string) => new Date(value).toLocaleDateString("fr-FR"),
-    },
-    {
-      key: "created_at",
-      label: "Heure",
-      render: (value: string) => new Date(value).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-    },
-    {
-      key: "payload",
-      label: "Aperçu",
-      render: (value: any) => (
-        <span className="text-xs text-ink3 truncate max-w-xs block" title={JSON.stringify(value)}>
-          {typeof value === "object" ? JSON.stringify(value).substring(0, 80) : String(value).substring(0, 80)}
-        </span>
-      ),
-    },
-  ];
+  function handleFilterChange(f: { form?: string; dateRange?: string }) {
+    setSelectedForm(f.form || "");
+    setDateRange(f.dateRange || "");
+    loadSubmissions({ page: 1, form: f.form, dateRange: f.dateRange, search: searchQuery });
+  }
 
+  // ── Rendu ────────────────────────────────────────────────────────────────
   return (
-    <main className="space-y-8">
-      <header>
-        <p className="text-sm uppercase tracking-[0.18em] text-gold-muted">Donnees</p>
-        <h1 className="mt-2 text-3xl font-semibold text-navy">Toutes les reponses KoboToolbox</h1>
-        <p className="mt-3 text-sm text-ink2">Consultez, triez et exportez toutes les donnees collectees</p>
-
-        <div className="mt-4 inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 shadow-sm">
-          {submissions.length > 0 ? `Données chargées : ${submissions.length}` : 'Aucune soumission chargée, appuyez sur Rafraichir'}
+    <main className="dp-main">
+      {/* Header */}
+      <div className="dp-header">
+        <div>
+          <p className="dp-eyebrow">Données</p>
+          <h1 className="dp-title">Réponses KoboToolbox</h1>
+          <p className="dp-subtitle">Consultez, filtrez et exportez toutes les données collectées</p>
         </div>
-      </header>
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <div className="rounded-[20px] border border-border bg-white p-6 shadow-sm">
-          <p className="text-sm text-ink3 font-medium">Total recu</p>
-          <p className="mt-3 text-3xl font-bold text-navy">{submissions.length}</p>
-          <p className="mt-2 text-xs text-ink3">soumissions enregistrees</p>
-        </div>
-        <div className="rounded-[20px] border border-border bg-white p-6 shadow-sm">
-          <p className="text-sm text-ink3 font-medium">Formulaire 1</p>
-          <p className="mt-3 text-3xl font-bold text-green-600">{submissions.filter(s => s.form === "genre_inclusion").length}</p>
-          <p className="mt-2 text-xs text-ink3">genre inclusion</p>
-        </div>
-        <div className="rounded-[20px] border border-border bg-white p-6 shadow-sm">
-          <p className="text-sm text-ink3 font-medium">Formulaire 2</p>
-          <p className="mt-3 text-3xl font-bold text-purple-600">{submissions.filter(s => s.form === "vie_etudiants").length}</p>
-          <p className="mt-2 text-xs text-ink3">vie des etudiants</p>
+        <div className="dp-actions">
+          <button onClick={syncFromKobo} disabled={syncStatus === "syncing"}
+            className={`dp-btn dp-btn-sync dp-btn-sync--${syncStatus}`}>
+            {syncStatus === "syncing" ? <><span className="dp-spinner" /> Synchronisation…</>
+              : syncStatus === "success" ? <>✓ Synchronisé</>
+              : syncStatus === "error" ? <>✕ Erreur sync</>
+              : <><SyncIcon /> Sync KoboToolbox</>}
+          </button>
+          <button onClick={() => loadSubmissions({ page: currentPage, form: selectedForm, dateRange, search: searchQuery })}
+            disabled={loading} className="dp-btn dp-btn-ghost">
+            <RefreshIcon /> <span className="dp-btn-label">Rafraîchir</span>
+          </button>
+          <button onClick={downloadExcel} disabled={totalCount === 0} className="dp-btn dp-btn-gold">
+            <DownloadIcon /> <span className="dp-btn-label">Excel</span>
+          </button>
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-border bg-white p-8 shadow-lg shadow-slate-200/70">
-        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-navy mb-2">Donnees completes</h2>
-            <p className="text-sm text-ink2">Liste de toutes les soumissions avec apercu des donnees</p>
+      {/* Bannière sync */}
+      {syncMessage && (
+        <div className={`dp-banner dp-banner--${syncStatus}`}>{syncMessage}</div>
+      )}
+
+      {/* Stat cards */}
+      <div className="dp-cards">
+        {[
+          { label: "Total reçu", value: totalCount, sub: "toutes soumissions", color: "#0d1b2a", bg: "#f8fafc" },
+          { label: "Formulaire 1", value: form1Count, sub: "Genre & Inclusion", color: "#15803d", bg: "#f0fdf4" },
+          { label: "Formulaire 2", value: form2Count, sub: "Vie estudiantine", color: "#7c3aed", bg: "#faf5ff" },
+        ].map(c => (
+          <div key={c.label} className="dp-card" style={{ background: c.bg }}>
+            <div>
+              <p className="dp-card-label">{c.label}</p>
+              <p className="dp-card-value" style={{ color: c.color }}>{c.value}</p>
+              <p className="dp-card-sub">{c.sub}</p>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <ModernButton variant="secondary" size="sm" onClick={refreshSubmissions}>
-              Rafraichir
-            </ModernButton>
-            <ModernButton variant="secondary" size="sm" onClick={downloadExcel} disabled={submissions.length === 0}>
-              Telecharger Excel
-            </ModernButton>
+        ))}
+      </div>
+
+      {/* Tableau */}
+      <div className="dp-table-card">
+        {/* Onglets formulaire */}
+        <div className="dp-tabs">
+          {([
+            { key: "all", label: "Toutes" },
+            { key: "genre_inclusion", label: "Genre & Inclusion" },
+            { key: "vie_etudiants", label: "Vie estudiantine" },
+          ] as const).map(tab => (
+            <button key={tab.key}
+              className={`dp-tab ${activeTab === tab.key ? "dp-tab--active" : ""}`}
+              onClick={() => setActiveTab(tab.key)}>
+              {tab.label}
+            </button>
+          ))}
+          <div className="dp-tab-count">
+            {displayedSubmissions.length} affiché{displayedSubmissions.length > 1 ? "s" : ""}
           </div>
         </div>
 
-        <div className="mb-6">
+        {/* Recherche */}
+        <div className="dp-search-wrap">
           <SearchFilter
             onSearch={handleSearch}
             onFilterChange={handleFilterChange}
-            placeholder="Rechercher dans les soumissions..."
+            placeholder="Rechercher dans les réponses…"
           />
         </div>
 
-        <ModernTable
-          columns={columns}
-          data={paginatedSubmissions}
-          loading={loading}
-          sortBy={sortBy}
-          onSort={handleSort}
-        />
+        {/* Tableau dynamique */}
+        <div className="dp-table-scroll">
+          {loading ? (
+            <div className="dp-loading">
+              <span className="dp-spinner dp-spinner--dark" />
+              Chargement des données…
+            </div>
+          ) : displayedSubmissions.length === 0 ? (
+            <div className="dp-empty">
+              Aucune donnée — utilisez « Sync KoboToolbox » pour importer les réponses.
+            </div>
+          ) : (
+            <table className="dp-table">
+              <thead>
+                <tr>
+                  {/* Colonnes fixes de contexte */}
+                  <th className="dp-th dp-th-form">Formulaire</th>
+                  <th className="dp-th dp-th-date">Date soumission</th>
+                  {/* Colonnes dynamiques issues des données */}
+                  {dynamicKeys
+                    .filter(k => !["_id", "_submission_time"].includes(k))
+                    .map(k => (
+                      <th key={k} className="dp-th" title={k}>
+                        {humanizeKey(k)}
+                      </th>
+                    ))}
+                  <th className="dp-th dp-th-action"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedSubmissions.map((row, i) => (
+                  <tr key={row.id} className={`dp-tr ${i % 2 === 0 ? "dp-tr--even" : ""}`}>
+                    {/* Formulaire badge */}
+                    <td className="dp-td">
+                      <FormBadge form={row.form} />
+                    </td>
+                    {/* Date */}
+                    <td className="dp-td dp-td-date">
+                      {row.created_at
+                        ? new Date(row.created_at).toLocaleString("fr-FR", {
+                            day: "2-digit", month: "2-digit", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })
+                        : "—"}
+                    </td>
+                    {/* Réponses dynamiques */}
+                    {dynamicKeys
+                      .filter(k => !["_id", "_submission_time"].includes(k))
+                      .map(k => (
+                        <td key={k} className="dp-td">
+                          <span className="dp-cell-value">
+                            {decodeValue(row.payload[k])}
+                          </span>
+                        </td>
+                      ))}
+                    {/* Bouton détail */}
+                    <td className="dp-td dp-td-action">
+                      <button className="dp-detail-btn" onClick={() => setDetailRow(row)}
+                        title="Voir tous les champs">
+                        ···
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
-        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-ink3">Affichage {Math.min(submissions.length, itemsPerPage)} sur {submissions.length} soumissions</p>
-          <div className="flex items-center gap-2">
-            <ModernButton
-              variant="secondary"
-              size="sm"
-              onClick={() => loadSubmissions({ page: Math.max(1, currentPage - 1), form: selectedForm, dateRange, search: searchQuery })}
-              disabled={currentPage <= 1}
-            >
-              ← Precedent
-            </ModernButton>
-            <span className="text-sm text-ink2">Page {currentPage}</span>
-            <ModernButton
-              variant="secondary"
-              size="sm"
-              onClick={() => loadSubmissions({ page: Math.min(totalPages, currentPage + 1), form: selectedForm, dateRange, search: searchQuery })}
-              disabled={currentPage >= totalPages}
-            >
-              Suivant →
-            </ModernButton>
+        {/* Pagination */}
+        <div className="dp-pagination">
+          <p className="dp-pag-info">
+            {totalCount === 0 ? "Aucun résultat"
+              : `Page ${currentPage} / ${Math.max(1, totalPages)} — ${totalCount} soumission${totalCount > 1 ? "s" : ""} au total`}
+          </p>
+          <div className="dp-pag-btns">
+            <button onClick={() => changePage(Math.max(1, currentPage - 1))}
+              disabled={currentPage <= 1} className="dp-page-btn">← Précédent</button>
+            <span className="dp-page-num">{currentPage}</span>
+            <button onClick={() => changePage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage >= totalPages} className="dp-page-btn">Suivant →</button>
           </div>
         </div>
 
-        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+        {error && <div className="dp-error">{error}</div>}
       </div>
 
-      {/* Export Confirmation Dialog */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="rounded-[20px] bg-white p-8 shadow-2xl max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold text-navy mb-4">Telecharger les donnees ?</h3>
-            <p className="text-sm text-ink2 mb-6">{submissions.length} soumissions seront exportees en fichier Excel</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium text-navy hover:bg-cream"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => {
-                  setShowConfirm(false);
-                  downloadExcel();
-                }}
-                className="flex-1 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-navy hover:brightness-110"
-              >
-                Telecharger
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Modal détail */}
+      {detailRow && (
+        <DetailModal row={detailRow} onClose={() => setDetailRow(null)} />
       )}
+
+      <style>{STYLES}</style>
     </main>
   );
 }
+
+// ── Sous-composants ────────────────────────────────────────────────────────
+
+function FormBadge({ form }: { form: string }) {
+  const isGenre = String(form).includes("genre");
+  // Label dynamique : on affiche le form_id nettoyé si inconnu
+  const label = isGenre ? "Genre & Inclusion"
+    : String(form).includes("vie") ? "Vie estudiantine"
+    : form || "—";
+  return (
+    <span style={{
+      display: "inline-block", padding: "3px 10px", borderRadius: 20,
+      fontSize: 11, fontWeight: 600, whiteSpace: "nowrap",
+      background: isGenre ? "#dcfce7" : "#ede9fe",
+      color: isGenre ? "#15803d" : "#7c3aed",
+    }}>{label}</span>
+  );
+}
+
+function DetailModal({ row, onClose }: { row: Submission; onClose: () => void }) {
+  const entries = Object.entries(row.payload || {})
+    .filter(([k]) => !["formhub/uuid", "meta/instanceID", "meta/rootUuid",
+      "_attachments", "_geolocation", "_tags", "_notes", "_validation_status"].includes(k));
+
+  return (
+    <div className="dp-modal-overlay" onClick={onClose}>
+      <div className="dp-modal" onClick={e => e.stopPropagation()}>
+        <div className="dp-modal-head">
+          <div>
+            <FormBadge form={row.form} />
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: "#7a9ab8" }}>
+              {row.created_at ? new Date(row.created_at).toLocaleString("fr-FR") : ""}
+            </p>
+          </div>
+          <button className="dp-modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="dp-modal-body">
+          {entries.map(([k, v]) => (
+            <div key={k} className="dp-modal-row">
+              <span className="dp-modal-key">{humanizeKey(k)}</span>
+              <span className="dp-modal-val">{decodeValue(v)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SyncIcon() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>;
+}
+function RefreshIcon() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></svg>;
+}
+function DownloadIcon() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+}
+
+// ── Styles ─────────────────────────────────────────────────────────────────
+const STYLES = `
+  .dp-main { padding: 24px 0; display: flex; flex-direction: column; gap: 20px; }
+
+  /* Header */
+  .dp-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .dp-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: #c9a84c; margin: 0 0 6px; }
+  .dp-title { font-size: clamp(20px,3vw,26px); font-weight: 700; color: #0d1b2a; margin: 0 0 4px; }
+  .dp-subtitle { font-size: 13px; color: #7a9ab8; margin: 0; }
+
+  /* Buttons */
+  .dp-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .dp-btn { display:inline-flex; align-items:center; gap:7px; padding:9px 15px; border-radius:12px; font-size:13px; font-weight:600; border:none; cursor:pointer; transition:all .18s; white-space:nowrap; font-family:inherit; }
+  .dp-btn:disabled { opacity:.5; cursor:not-allowed; }
+  .dp-btn-sync { background:linear-gradient(135deg,#0d1b2a,#1a3352); color:#fff; box-shadow:0 3px 10px rgba(13,27,42,.2); }
+  .dp-btn-sync:hover:not(:disabled) { box-shadow:0 5px 16px rgba(13,27,42,.3); transform:translateY(-1px); }
+  .dp-btn-sync--success { background:linear-gradient(135deg,#15803d,#16a34a) !important; }
+  .dp-btn-sync--error { background:linear-gradient(135deg,#dc2626,#b91c1c) !important; }
+  .dp-btn-ghost { background:#fff; color:#3d5166; border:1px solid #e2e8ef; }
+  .dp-btn-ghost:hover:not(:disabled) { background:#f4f7fa; }
+  .dp-btn-gold { background:rgba(201,168,76,.1); color:#a8863e; border:1px solid rgba(201,168,76,.35); }
+  .dp-btn-gold:hover:not(:disabled) { background:rgba(201,168,76,.18); }
+  .dp-spinner { display:inline-block; width:13px; height:13px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+  .dp-spinner--dark { border-color:rgba(13,27,42,.15); border-top-color:#0d1b2a; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Banner */
+  .dp-banner { padding:10px 14px; border-radius:11px; font-size:13px; font-weight:500; }
+  .dp-banner--success { background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; }
+  .dp-banner--error { background:#fee2e2; color:#dc2626; border:1px solid #fecaca; }
+  .dp-banner--syncing { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+
+  /* Stat cards */
+  .dp-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .dp-card { border:1px solid #e2e8ef; border-radius:16px; padding:16px 20px; box-shadow:0 1px 4px rgba(13,27,42,.04); }
+  .dp-card-label { font-size:11px; font-weight:600; color:#7a9ab8; text-transform:uppercase; letter-spacing:.08em; margin:0 0 4px; }
+  .dp-card-value { font-size:32px; font-weight:800; margin:0 0 2px; line-height:1; }
+  .dp-card-sub { font-size:11px; color:#9bb3c8; margin:0; }
+
+  /* Table card */
+  .dp-table-card { background:#fff; border:1px solid #e2e8ef; border-radius:20px; padding:20px; box-shadow:0 3px 14px rgba(13,27,42,.06); display:flex; flex-direction:column; gap:14px; }
+
+  /* Tabs */
+  .dp-tabs { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .dp-tab { padding:7px 16px; border-radius:20px; font-size:12.5px; font-weight:600; border:1px solid #e2e8ef; background:#f8fafc; color:#7a9ab8; cursor:pointer; transition:all .15s; font-family:inherit; }
+  .dp-tab--active { background:#0d1b2a; color:#fff; border-color:#0d1b2a; }
+  .dp-tab-count { margin-left:auto; font-size:12px; color:#9bb3c8; }
+
+  /* Table */
+  .dp-table-scroll { overflow-x:auto; border-radius:12px; border:1px solid #e8edf2; }
+  .dp-table { width:100%; border-collapse:collapse; font-size:13px; }
+
+  .dp-th { padding:11px 14px; text-align:left; font-size:11px; font-weight:700; color:#fff; background:#1e3a5f; white-space:nowrap; border-right:1px solid rgba(255,255,255,.08); position:sticky; top:0; z-index:1; }
+  .dp-th:first-child { border-radius:12px 0 0 0; }
+  .dp-th:last-child { border-right:none; border-radius:0 12px 0 0; }
+  .dp-th-form { min-width:140px; }
+  .dp-th-date { min-width:150px; }
+  .dp-th-action { width:40px; }
+
+  .dp-tr { transition:background .1s; }
+  .dp-tr--even { background:#f7fafd; }
+  .dp-tr:hover { background:#eef4fb !important; }
+
+  .dp-td { padding:10px 14px; border-bottom:1px solid #edf1f6; vertical-align:middle; border-right:1px solid #f0f4f8; }
+  .dp-td:last-child { border-right:none; }
+  .dp-td-date { font-size:12px; color:#3d5166; white-space:nowrap; }
+  .dp-td-action { text-align:center; }
+
+  .dp-cell-value { display:block; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#1a2b3c; }
+
+  .dp-detail-btn { background:none; border:1px solid #e2e8ef; border-radius:6px; padding:2px 8px; font-size:15px; color:#7a9ab8; cursor:pointer; letter-spacing:.1em; transition:all .15s; }
+  .dp-detail-btn:hover { background:#f0f5fb; color:#0d1b2a; }
+
+  /* Loading / Empty */
+  .dp-loading { display:flex; align-items:center; gap:10px; padding:40px; color:#7a9ab8; font-size:14px; justify-content:center; }
+  .dp-empty { padding:48px; text-align:center; color:#9bb3c8; font-size:14px; }
+
+  /* Pagination */
+  .dp-pagination { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding-top:4px; }
+  .dp-pag-info { font-size:12.5px; color:#7a9ab8; margin:0; }
+  .dp-pag-btns { display:flex; align-items:center; gap:6px; }
+  .dp-page-btn { padding:7px 14px; border-radius:9px; font-size:12.5px; font-weight:500; border:1px solid #e2e8ef; background:#fff; color:#3d5166; cursor:pointer; transition:all .15s; font-family:inherit; }
+  .dp-page-btn:hover:not(:disabled) { background:#f4f7fa; }
+  .dp-page-btn:disabled { color:#c8d4df; cursor:not-allowed; }
+  .dp-page-num { font-size:12.5px; color:#7a9ab8; padding:0 6px; }
+
+  .dp-error { padding:10px 14px; background:#fee2e2; border-radius:10px; font-size:13px; color:#dc2626; border:1px solid #fecaca; }
+
+  /* Modal */
+  .dp-modal-overlay { position:fixed; inset:0; background:rgba(13,27,42,.45); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(2px); }
+  .dp-modal { background:#fff; border-radius:20px; width:100%; max-width:560px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(13,27,42,.25); overflow:hidden; }
+  .dp-modal-head { display:flex; align-items:flex-start; justify-content:space-between; padding:20px 24px 16px; border-bottom:1px solid #f0f4f8; }
+  .dp-modal-close { background:none; border:none; font-size:16px; color:#7a9ab8; cursor:pointer; padding:4px 8px; border-radius:6px; }
+  .dp-modal-close:hover { background:#f4f7fa; color:#0d1b2a; }
+  .dp-modal-body { overflow-y:auto; padding:12px 24px 24px; display:flex; flex-direction:column; gap:2px; }
+  .dp-modal-row { display:grid; grid-template-columns:1fr 1.2fr; gap:12px; padding:8px 0; border-bottom:1px solid #f4f7fa; }
+  .dp-modal-row:last-child { border-bottom:none; }
+  .dp-modal-key { font-size:12px; font-weight:600; color:#7a9ab8; }
+  .dp-modal-val { font-size:13px; color:#1a2b3c; word-break:break-word; }
+
+  /* Responsive */
+  @media (max-width:680px) {
+    .dp-header { flex-direction:column; align-items:flex-start; }
+    .dp-cards { grid-template-columns:1fr; gap:8px; }
+    .dp-btn-label { display:none; }
+    .dp-btn { padding:9px 12px; }
+  }
+`;

@@ -28,16 +28,43 @@ export async function POST(request: Request) {
   const form_id = extractFormId(payload);
   const received_at = extractReceivedAt(payload);
 
+  // ── 1. Enregistre la soumission KoboToolbox ──
   const { data, error } = await supabaseAdmin.from("submissions").insert([
-    {
-      form_id,
-      data: payload,
-      received_at,
-    },
+    { form_id, data: payload, received_at },
   ]);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // ── 2. Synchronise device_statuses depuis le device_fp du payload ──
+  // Si l'étudiant a soumis via KoboToolbox avec son empreinte dans l'URL,
+  // on marque l'appareil comme "soumis" en base pour bloquer toute double saisie.
+  const deviceFp: string | undefined =
+    payload?.device_fp ||
+    payload?.["device_fp"] ||
+    payload?.data?.device_fp;
+
+  if (deviceFp && typeof deviceFp === "string" && deviceFp.trim()) {
+    // Détermine form_id court (f1 / f2) depuis le champ "form" du payload
+    const formShort =
+      typeof payload?.form === "string" && payload.form.includes("genre") ? "f1"
+      : typeof payload?.form === "string" && (payload.form.includes("vie") || payload.form.includes("etudiant")) ? "f2"
+      : form_id?.toLowerCase().includes("genre") ? "f1"
+      : form_id?.toLowerCase().includes("vie") || form_id?.toLowerCase().includes("etudiant") ? "f2"
+      : null;
+
+    if (formShort) {
+      const { error: dsError } = await supabaseAdmin
+        .from("device_statuses")
+        .upsert(
+          { fp: deviceFp.trim(), form_id: formShort, submitted_at: received_at },
+          { onConflict: "fp,form_id" }
+        );
+      if (dsError) {
+        console.error("[webhook] Erreur upsert device_statuses:", dsError.message);
+      }
+    }
   }
 
   return NextResponse.json({ status: "ok", data }, { status: 201 });
