@@ -11,6 +11,15 @@ function isValidUrl(value: string) {
   } catch { return false; }
 }
 
+// Extrait l'UID depuis une URL KoboToolbox
+// ex: https://kf.kobotoolbox.org/#/forms/aGY6oskmZjpwsypmupr4CG/data/table → aGY6oskmZjpwsypmupr4CG
+function extractKoboUid(url: string): string | null {
+  try {
+    const match = url.match(/\/forms\/([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  } catch { return null; }
+}
+
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
@@ -65,25 +74,147 @@ function SettingsSection({ icon, title, subtitle, accent = "#0d1b2a", children }
   );
 }
 
+// Carte formulaire individuelle dans la section gestion
+function FormSlot({
+  number, formShort, title, enketoUrl, dataUrl, xformId,
+  onChangeTitle, onChangeEnketo, onChangeData, onClear,
+  saving,
+}: {
+  number: number; formShort: string;
+  title: string; enketoUrl: string; dataUrl: string; xformId: string | null;
+  onChangeTitle: (v: string) => void;
+  onChangeEnketo: (v: string) => void;
+  onChangeData: (v: string) => void;
+  onClear: () => void;
+  saving: boolean;
+}) {
+  const hasContent = enketoUrl.trim() || dataUrl.trim();
+  const detectedUid = dataUrl.trim() ? extractKoboUid(dataUrl) : null;
+
+  return (
+    <div style={{
+      border: "1.5px solid #e2e8ef", borderRadius: 18, overflow: "hidden",
+    }}>
+      {/* Header formulaire */}
+      <div style={{
+        background: hasContent ? "linear-gradient(135deg,#f8fafc,#eef4fb)" : "#fafbfc",
+        padding: "16px 20px",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+        borderBottom: "1px solid #e2e8ef",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+            background: hasContent ? "#0d1b2a" : "#e2e8ef",
+            color: hasContent ? "#fff" : "#9bb3c8",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 13, fontWeight: 700,
+          }}>
+            {number}
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0d1b2a" }}>
+              {title || `Formulaire ${number}`}
+            </div>
+            <div style={{ fontSize: 11, color: hasContent ? "#2d6a4f" : "#9bb3c8", fontWeight: 600 }}>
+              {hasContent ? "● Actif" : "○ Inactif — non affiché aux étudiants"}
+            </div>
+          </div>
+        </div>
+        {hasContent && (
+          <button
+            onClick={onClear}
+            disabled={saving}
+            style={{
+              fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 8,
+              border: "1px solid #fecaca", background: "#fff5f5", color: "#dc2626",
+              cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1,
+              transition: "all 0.15s",
+            }}
+          >
+            Vider
+          </button>
+        )}
+      </div>
+
+      {/* Champs */}
+      <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <Field label="Nom affiché" hint="Titre visible sur la page publique">
+          <InputStyle value={title} onChange={onChangeTitle} placeholder={`Ex : Formulaire ${number}`} />
+        </Field>
+
+        <Field label="Lien Enketo (page publique)" hint="Ex : https://ee.kobotoolbox.org/x/…">
+          <InputStyle type="url" value={enketoUrl} onChange={onChangeEnketo} placeholder="https://ee.kobotoolbox.org/x/…" />
+        </Field>
+
+        <Field
+          label="URL data KoboToolbox"
+          hint="kf.kobotoolbox.org → votre formulaire → Données → copier l'URL"
+        >
+          <InputStyle type="url" value={dataUrl} onChange={onChangeData} placeholder="https://kf.kobotoolbox.org/#/forms/…/data/table" />
+        </Field>
+
+        {/* UID détecté automatiquement */}
+        {dataUrl.trim() && (
+          <div style={{
+            padding: "10px 14px", borderRadius: 10, fontSize: 12,
+            background: detectedUid ? "#f0fdf4" : "#fef2f2",
+            border: `1px solid ${detectedUid ? "#bbf7d0" : "#fecaca"}`,
+            color: detectedUid ? "#15803d" : "#dc2626",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              {detectedUid
+                ? <polyline points="20 6 9 17 4 12"/>
+                : <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+              }
+            </svg>
+            {detectedUid
+              ? <>UID détecté : <code style={{ fontFamily: "monospace", fontWeight: 700, marginLeft: 4 }}>{detectedUid}</code></>
+              : "UID non détecté — vérifiez l'URL data"
+            }
+          </div>
+        )}
+
+        {/* UID enregistré actuellement */}
+        {xformId && !dataUrl.trim() && (
+          <div style={{
+            padding: "10px 14px", borderRadius: 10, fontSize: 12,
+            background: "#f0f9ff", border: "1px solid #bae6fd", color: "#0369a1",
+          }}>
+            UID enregistré : <code style={{ fontFamily: "monospace", fontWeight: 700 }}>{xformId}</code>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettingsPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  // Noms des formulaires (affichés sur la page publique)
+
+  // Formulaire 1
   const [title1, setTitle1] = useState("");
-  const [title2, setTitle2] = useState("");
-  // URLs formulaires publics (enketo)
   const [url1, setUrl1] = useState("");
-  const [url2, setUrl2] = useState("");
-  // URLs data KoboToolbox (kf.kobotoolbox.org)
   const [urlData1, setUrlData1] = useState("");
+  const [xformId1, setXformId1] = useState<string | null>(null);
+
+  // Formulaire 2
+  const [title2, setTitle2] = useState("");
+  const [url2, setUrl2] = useState("");
   const [urlData2, setUrlData2] = useState("");
-  // Token API KoboToolbox
+  const [xformId2, setXformId2] = useState<string | null>(null);
+
+  // Kobo token
   const [koboToken, setKoboToken] = useState("");
   const [showToken, setShowToken] = useState(false);
 
+  // Mot de passe
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -96,11 +227,12 @@ export default function AdminSettingsPage() {
       if (!data.session) { router.replace("/admin/login"); return; }
       setEmail(data.session.user.email || "");
 
-      const { data: configRows, error } = await supabase
+      // Charge config
+      const { data: configRows } = await supabase
         .from("config").select("id,value")
         .in("id", ["url1", "url2", "url_data1", "url_data2", "kobo_token", "title1", "title2"]);
 
-      if (!error && Array.isArray(configRows)) {
+      if (Array.isArray(configRows)) {
         setUrl1(configRows.find((r: any) => r.id === "url1")?.value ?? "");
         setUrl2(configRows.find((r: any) => r.id === "url2")?.value ?? "");
         setUrlData1(configRows.find((r: any) => r.id === "url_data1")?.value ?? "");
@@ -109,6 +241,15 @@ export default function AdminSettingsPage() {
         setTitle1(configRows.find((r: any) => r.id === "title1")?.value ?? "Genre & Inclusion");
         setTitle2(configRows.find((r: any) => r.id === "title2")?.value ?? "Vie des Etudiants");
       }
+
+      // Charge form_mapping
+      const { data: mappingRows } = await supabase
+        .from("form_mapping").select("xform_id_string,form_short");
+      if (Array.isArray(mappingRows)) {
+        setXformId1(mappingRows.find((r: any) => r.form_short === "f1")?.xform_id_string ?? null);
+        setXformId2(mappingRows.find((r: any) => r.form_short === "f2")?.xform_id_string ?? null);
+      }
+
       setLoading(false);
     };
     init();
@@ -124,64 +265,76 @@ export default function AdminSettingsPage() {
     setTimeout(() => setMessage(null), 5000);
   }
 
-  async function handleSaveFormUrls() {
-    if (url1.trim() && !isValidUrl(url1)) { flashMessage("error", "L'URL du formulaire 1 est invalide"); return; }
-    if (url2.trim() && !isValidUrl(url2)) { flashMessage("error", "L'URL du formulaire 2 est invalide"); return; }
+  // Sauvegarde les deux formulaires (config + form_mapping)
+  async function handleSaveForms() {
+    if (url1.trim() && !isValidUrl(url1)) { flashMessage("error", "L'URL Enketo du formulaire 1 est invalide"); return; }
+    if (url2.trim() && !isValidUrl(url2)) { flashMessage("error", "L'URL Enketo du formulaire 2 est invalide"); return; }
+    if (urlData1.trim() && !isValidUrl(urlData1)) { flashMessage("error", "L'URL data du formulaire 1 est invalide"); return; }
+    if (urlData2.trim() && !isValidUrl(urlData2)) { flashMessage("error", "L'URL data du formulaire 2 est invalide"); return; }
 
-    setSaving("urls");
-    // Toujours upsert url1 et url2, même vides — c'est ce qui désactive la carte côté public
-    const rows: any[] = [
+    setSaving("forms");
+
+    // 1. Upsert config
+    const configRows = [
       { id: "title1", value: title1.trim() || "Genre & Inclusion" },
       { id: "title2", value: title2.trim() || "Vie des Etudiants" },
       { id: "url1", value: url1.trim() },
       { id: "url2", value: url2.trim() },
+      { id: "url_data1", value: urlData1.trim() },
+      { id: "url_data2", value: urlData2.trim() },
     ];
-    const { error } = await supabase.from("config").upsert(rows, { onConflict: "id" });
-    setSaving(null);
-    if (error) flashMessage("error", `Erreur : ${error.message}`);
-    else {
-      const cleared = (!url1.trim() ? "formulaire 1 " : "") + (!url2.trim() ? "formulaire 2" : "");
-      if (cleared.trim())
-        flashMessage("success", `Lien(s) supprimé(s) pour ${cleared.trim()} — carte(s) désactivée(s) immédiatement`);
-      else
-        flashMessage("success", "URLs des formulaires enregistrées — la page publique est mise à jour");
+    if (koboToken.trim()) configRows.push({ id: "kobo_token", value: koboToken.trim() });
+
+    const { error: configError } = await supabase.from("config").upsert(configRows, { onConflict: "id" });
+    if (configError) { flashMessage("error", `Erreur config : ${configError.message}`); setSaving(null); return; }
+
+    // 2. Upsert form_mapping si UID détectable
+    const uid1 = urlData1.trim() ? extractKoboUid(urlData1) : null;
+    const uid2 = urlData2.trim() ? extractKoboUid(urlData2) : null;
+
+    const mappingRows: any[] = [];
+    if (uid1) mappingRows.push({ xform_id_string: uid1, form_short: "f1", label: title1.trim() || "Genre & Inclusion" });
+    if (uid2) mappingRows.push({ xform_id_string: uid2, form_short: "f2", label: title2.trim() || "Vie des Etudiants" });
+
+    if (mappingRows.length > 0) {
+      const { error: mapError } = await supabase.from("form_mapping").upsert(mappingRows, { onConflict: "form_short" });
+      if (mapError) console.error("[settings] form_mapping upsert:", mapError.message);
+      else {
+        if (uid1) setXformId1(uid1);
+        if (uid2) setXformId2(uid2);
+      }
     }
+
+    // 3. Si URL data vidée → supprime le mapping correspondant
+    if (!urlData1.trim() && xformId1) {
+      await supabase.from("form_mapping").delete().eq("form_short", "f1");
+      setXformId1(null);
+    }
+    if (!urlData2.trim() && xformId2) {
+      await supabase.from("form_mapping").delete().eq("form_short", "f2");
+      setXformId2(null);
+    }
+
+    setSaving(null);
+    flashMessage("success", "Formulaires mis à jour — la page publique est à jour immédiatement");
   }
 
-  async function handleSaveDataConfig() {
-    if (urlData1 && !isValidUrl(urlData1)) { flashMessage("error", "L'URL data 1 est invalide"); return; }
-    if (urlData2 && !isValidUrl(urlData2)) { flashMessage("error", "L'URL data 2 est invalide"); return; }
-
-    setSaving("data");
-    const rows: any[] = [];
-    if (urlData1) rows.push({ id: "url_data1", value: urlData1 });
-    if (urlData2) rows.push({ id: "url_data2", value: urlData2 });
-    if (koboToken) rows.push({ id: "kobo_token", value: koboToken });
-
-    if (rows.length === 0) { setSaving(null); flashMessage("error", "Aucune valeur à enregistrer"); return; }
-
-    const { error } = await supabase.from("config").upsert(rows, { onConflict: "id" });
-    setSaving(null);
-    if (error) flashMessage("error", `Erreur : ${error.message}`);
-    else flashMessage("success", "Configuration de synchronisation enregistrée");
+  function handleClearForm(num: 1 | 2) {
+    if (num === 1) { setUrl1(""); setUrlData1(""); }
+    else { setUrl2(""); setUrlData2(""); }
   }
 
   async function handleChangePassword() {
     if (!oldPassword || !newPassword || !confirmPassword) { flashMessage("error", "Tous les champs sont requis"); return; }
     if (newPassword !== confirmPassword) { flashMessage("error", "Les mots de passe ne correspondent pas"); return; }
     if (newPassword.length < 6) { flashMessage("error", "Le mot de passe doit avoir au moins 6 caractères"); return; }
-
     setSaving("password");
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: oldPassword });
     if (signInError) { flashMessage("error", "Ancien mot de passe incorrect"); setSaving(null); return; }
-
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
     setSaving(null);
     if (updateError) flashMessage("error", `Erreur : ${updateError.message}`);
-    else {
-      flashMessage("success", "Mot de passe changé avec succès");
-      setOldPassword(""); setNewPassword(""); setConfirmPassword("");
-    }
+    else { flashMessage("success", "Mot de passe changé avec succès"); setOldPassword(""); setNewPassword(""); setConfirmPassword(""); }
   }
 
   async function handleSignOut() {
@@ -233,7 +386,7 @@ export default function AdminSettingsPage() {
         </p>
         <h1 style={{ fontSize: 30, fontWeight: 800, color: "#0d1b2a", margin: 0 }}>Configuration et compte</h1>
         <p style={{ marginTop: 8, fontSize: 14, color: "#7a9ab8" }}>
-          Gérez les URLs des formulaires, la synchronisation KoboToolbox et votre mot de passe
+          Gérez les formulaires, la synchronisation KoboToolbox et votre mot de passe
         </p>
       </div>
 
@@ -250,75 +403,63 @@ export default function AdminSettingsPage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-        {/* ── Section 1 : URLs formulaires publics ── */}
+        {/* ── Section : Gestion des formulaires ── */}
         <SettingsSection
-          icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>}
-          title="Liens des formulaires (page publique)"
-          subtitle="Ces URLs apparaissent sur la page publique — modifiez-les ici pour les changer partout"
+          icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>}
+          title="Gestion des formulaires"
+          subtitle="Ajoutez, modifiez ou désactivez les formulaires — sans toucher au code"
           accent="#0d1b2a"
         >
-          <div style={{ marginBottom: 14, padding: "10px 14px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, fontSize: 12.5, color: "#0369a1" }}>
-            <svg style={{display:"inline",verticalAlign:"middle",marginRight:6}} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Ces liens sont affichés sur la page publique. Quand vous les modifiez ici, ils changent automatiquement pour les étudiants.
+          <div style={{ marginBottom: 18, padding: "10px 14px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, fontSize: 12.5, color: "#0369a1" }}>
+            <svg style={{display:"inline",verticalAlign:"middle",marginRight:6}} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Un formulaire sans lien Enketo est <strong>masqué</strong> sur la page publique. L'UID webhook est extrait automatiquement depuis l'URL data.
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <Field label="Nom du formulaire 1" hint="Ce nom s'affiche sur la page publique et dans les exports">
-              <InputStyle value={title1} onChange={setTitle1} placeholder="Ex : Genre & Inclusion" />
-            </Field>
-            <Field label="Lien formulaire 1" hint="Ex : https://ee.kobotoolbox.org/x/zHy4iTMt">
-              <InputStyle type="url" value={url1} onChange={setUrl1} placeholder="https://ee.kobotoolbox.org/x/…" />
-            </Field>
-            <Field label="Nom du formulaire 2" hint="Ce nom s'affiche sur la page publique et dans les exports">
-              <InputStyle value={title2} onChange={setTitle2} placeholder="Ex : Vie des Etudiants" />
-            </Field>
-            <Field label="Lien formulaire 2" hint="Ex : https://ee.kobotoolbox.org/x/FO24PkpW">
-              <InputStyle type="url" value={url2} onChange={setUrl2} placeholder="https://ee.kobotoolbox.org/x/…" />
-            </Field>
-            <div>
-              <PrimaryBtn label="Enregistrer les liens" loadingLabel="Enregistrement…" loadingKey="urls"
-                onClick={() => showConfirmDialog("Enregistrer les liens ?", handleSaveFormUrls, "Les nouveaux liens seront immédiatement visibles sur la page publique.")}
-              />
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+            <FormSlot
+              number={1} formShort="f1"
+              title={title1} enketoUrl={url1} dataUrl={urlData1} xformId={xformId1}
+              onChangeTitle={setTitle1} onChangeEnketo={setUrl1} onChangeData={setUrlData1}
+              onClear={() => showConfirmDialog("Vider le formulaire 1 ?", () => handleClearForm(1), "Le formulaire 1 sera masqué sur la page publique.", true)}
+              saving={saving === "forms"}
+            />
+            <FormSlot
+              number={2} formShort="f2"
+              title={title2} enketoUrl={url2} dataUrl={urlData2} xformId={xformId2}
+              onChangeTitle={setTitle2} onChangeEnketo={setUrl2} onChangeData={setUrlData2}
+              onClear={() => showConfirmDialog("Vider le formulaire 2 ?", () => handleClearForm(2), "Le formulaire 2 sera masqué sur la page publique.", true)}
+              saving={saving === "forms"}
+            />
+          </div>
+
+          {/* Token KoboToolbox ici aussi */}
+          <Field label="Token API KoboToolbox" hint="kf.kobotoolbox.org → Profil → Clé API">
+            <div style={{ position: "relative" }}>
+              <InputStyle type={showToken ? "text" : "password"} value={koboToken} onChange={setKoboToken} placeholder="Token de votre compte KoboToolbox" />
+              <button
+                type="button" onClick={() => setShowToken(!showToken)}
+                style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#7a9ab8", fontSize: 12 }}
+              >
+                {showToken ? "Masquer" : "Afficher"}
+              </button>
             </div>
+          </Field>
+
+          <div style={{ marginTop: 20 }}>
+            <PrimaryBtn
+              label="Enregistrer les formulaires"
+              loadingLabel="Enregistrement…"
+              loadingKey="forms"
+              onClick={() => showConfirmDialog(
+                "Enregistrer les formulaires ?",
+                handleSaveForms,
+                "Les changements seront visibles immédiatement sur la page publique et dans le webhook."
+              )}
+            />
           </div>
         </SettingsSection>
 
-        {/* ── Section 2 : Config synchronisation ── */}
-        <SettingsSection
-          icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>}
-          title="Synchronisation KoboToolbox"
-          subtitle="URLs de données et token d'API pour importer les réponses"
-          accent="#c9a84c"
-        >
-          <div style={{ marginBottom: 14, padding: "10px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, fontSize: 12.5, color: "#92400e" }}>
-            <svg style={{display:"inline",verticalAlign:"middle",marginRight:6}} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>Copiez l'URL depuis KoboToolbox : <strong>kf.kobotoolbox.org → votre formulaire → Données → copier l'URL de la page</strong>
-            <br/>Ex : <code style={{ fontSize: 11, background: "#fef3c7", padding: "1px 5px", borderRadius: 4 }}>https://kf.kobotoolbox.org/#/forms/aniqawdF43XcJApbgErFuF/data/table</code>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <Field label={`URL data — ${title1 || "Formulaire 1"}`} hint="URL de la page de données KoboToolbox (kf.kobotoolbox.org)">
-              <InputStyle type="url" value={urlData1} onChange={setUrlData1} placeholder="https://kf.kobotoolbox.org/#/forms/…/data/table" />
-            </Field>
-            <Field label={`URL data — ${title2 || "Formulaire 2"}`} hint="URL de la page de données KoboToolbox (kf.kobotoolbox.org)">
-              <InputStyle type="url" value={urlData2} onChange={setUrlData2} placeholder="https://kf.kobotoolbox.org/#/forms/…/data/table" />
-            </Field>
-            <Field label="Token API KoboToolbox" hint="Obtenir depuis : kf.kobotoolbox.org → Profil → Clé API (token)">
-              <div style={{ position: "relative" }}>
-                <InputStyle type={showToken ? "text" : "password"} value={koboToken} onChange={setKoboToken} placeholder="Token de votre compte KoboToolbox" />
-                <button
-                  type="button" onClick={() => setShowToken(!showToken)}
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#7a9ab8", fontSize: 12 }}
-                >
-                  {showToken ? "Masquer" : "Afficher"}
-                </button>
-              </div>
-            </Field>
-            <div>
-              <PrimaryBtn label="Enregistrer la config sync" loadingLabel="Enregistrement…" loadingKey="data"
-                onClick={() => showConfirmDialog("Enregistrer la configuration ?", handleSaveDataConfig, "Ces paramètres seront utilisés lors de la prochaine synchronisation.")}
-              />
-            </div>
-          </div>
-        </SettingsSection>
-
-        {/* ── Section 3 : Compte ── */}
+        {/* ── Section : Compte ── */}
         <SettingsSection
           icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
           title="Informations du compte"
@@ -330,7 +471,7 @@ export default function AdminSettingsPage() {
           </Field>
         </SettingsSection>
 
-        {/* ── Section 4 : Mot de passe ── */}
+        {/* ── Section : Mot de passe ── */}
         <SettingsSection
           icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
           title="Changer le mot de passe"
