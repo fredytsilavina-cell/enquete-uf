@@ -1,24 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Fond circulaire dégradé navy -->
-  <circle cx="32" cy="32" r="32" fill="#0d1b2a"/>
-
-  <!-- Mortier (graduation cap) — plateau -->
-  <polygon points="32,14 56,24 32,34 8,24" fill="#c9a84c"/>
-
-  <!-- Reliefs dorés sur le plateau -->
-  <polygon points="32,14 56,24 32,24" fill="#e8c96a" opacity="0.45"/>
-
-  <!-- Tige verticale du mortier -->
-  <rect x="30" y="34" width="4" height="13" rx="2" fill="#c9a84c"/>
-
-  <!-- Capsule de diplôme au bout de la tige -->
-  <rect x="26" y="47" width="12" height="6" rx="3" fill="#c9a84c"/>
-  <rect x="26" y="47" width="12" height="2.5" rx="1.5" fill="#e8c96a" opacity="0.6"/>
-
-  <!-- Cordelière pendante (côté droit) -->
-  <line x1="52" y1="24" x2="52" y2="36" stroke="#c9a84c" stroke-width="2.2" stroke-linecap="round"/>
-  <circle cx="52" cy="38" r="2.5" fill="#c9a84c"/>
-
-  <!-- Accent doré : fine ligne sous le plateau -->
-  <ellipse cx="32" cy="34.5" rx="24" ry="1.2" fill="#a8863e" opacity="0.35"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Fond rond or foncé -->
+  <rect width="32" height="32" rx="8" fill="#0d1b2a"/>
+  
+  <!-- Toque académique -->
+  <polygon points="16,7 28,13 16,17 4,13" fill="#c9a84c"/>
+  <rect x="14.5" y="17" width="3" height="6" fill="#c9a84c"/>
+  <ellipse cx="16" cy="23.5" rx="3.5" ry="1.5" fill="#c9a84c"/>
+  
+  <!-- Cordon pendant -->
+  <line x1="28" y1="13" x2="28" y2="19" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="28" cy="20" r="1.2" fill="#c9a84c"/>
 </svg>
