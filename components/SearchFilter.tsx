@@ -30,7 +30,7 @@ export function SearchFilter({ onSearch, onFilterChange, placeholder }: SearchFi
   const [dateOpen, setDateOpen] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
   const dateRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
