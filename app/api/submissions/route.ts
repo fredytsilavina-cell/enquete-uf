@@ -272,6 +272,245 @@ function buildStyledSheet(
   return ws;
 }
 
+// ─── XLSX builder : feuille de couplage (Form1 + Form2 sur même ligne) ────
+//
+// Logique :
+//   - On groupe form1 et form2 par device_fp
+//   - Seuls les device_fp présents dans LES DEUX formulaires apparaissent
+//   - Colonnes : [device_fp] | [toutes colonnes Form1] | [toutes colonnes Form2]
+//   - En-tête sur 2 niveaux : ligne 1 = titre fusionné par section, ligne 2 = labels
+
+function buildCouplingSheet(form1: any[], form2: any[]): XLSX.WorkSheet {
+  // Index form1 et form2 par device_fp
+  const map1 = new Map<string, any>();
+  const map2 = new Map<string, any>();
+
+  for (const r of form1) {
+    const fp = String(r.payload?.device_fp || '').trim();
+    if (fp) map1.set(fp, r);
+  }
+  for (const r of form2) {
+    const fp = String(r.payload?.device_fp || '').trim();
+    if (fp) map2.set(fp, r);
+  }
+
+  // Intersection : device_fp présents dans les deux
+  const pairedFps = [...map1.keys()].filter(fp => map2.has(fp));
+
+  if (pairedFps.length === 0) {
+    const ws = XLSX.utils.aoa_to_sheet([['Aucun couplage trouvé — aucun appareil n\'a soumis les deux formulaires.']]);
+    const cell = ws['A1'];
+    if (cell) cell.s = {
+      font: { bold: true, sz: 12, color: { rgb: PALETTE.headerFg } },
+      fill: { patternType: 'solid', fgColor: { rgb: PALETTE.headerBg } },
+      alignment: { horizontal: 'center' },
+    };
+    return ws;
+  }
+
+  // Collecter les colonnes de chaque formulaire (hors device_fp, hors clés cachées)
+  const COUPLING_HIDDEN = new Set([...HIDDEN_KEYS, 'device_fp', 'instanceID']);
+  const PRIORITY_F1 = PRIORITY_KEYS_FORM1.filter(k => k !== 'device_fp');
+  const PRIORITY_F2 = PRIORITY_KEYS_FORM2.filter(k => k !== 'device_fp');
+
+  const keys1Set = new Set<string>(PRIORITY_F1);
+  const keys2Set = new Set<string>(PRIORITY_F2);
+  for (const fp of pairedFps) {
+    for (const k of Object.keys(map1.get(fp)!.payload || {})) {
+      if (!COUPLING_HIDDEN.has(k)) keys1Set.add(k);
+    }
+    for (const k of Object.keys(map2.get(fp)!.payload || {})) {
+      if (!COUPLING_HIDDEN.has(k)) keys2Set.add(k);
+    }
+  }
+  const rest1 = [...keys1Set].filter(k => !PRIORITY_F1.includes(k)).sort();
+  const rest2 = [...keys2Set].filter(k => !PRIORITY_F2.includes(k)).sort();
+  const cols1 = [...PRIORITY_F1.filter(k => keys1Set.has(k)), ...rest1];
+  const cols2 = [...PRIORITY_F2.filter(k => keys2Set.has(k)), ...rest2];
+
+  // Structure colonnes : [Code appareil] | [cols Form1...] | [cols Form2...]
+  const totalCols = 1 + cols1.length + cols2.length;
+
+  // Ligne 1 : Titre global fusionné
+  const titleRow = ['Couplage Genre & Inclusion × Vie des Étudiants', ...Array(totalCols - 1).fill('')];
+
+  // Ligne 2 : Sections fusionnées (Code appareil | Genre & Inclusion | Vie des Étudiants)
+  const sectionRow = [
+    'Code appareil',
+    'Genre & Inclusion', ...Array(cols1.length - 1).fill(''),
+    'Vie des Étudiants', ...Array(cols2.length - 1).fill(''),
+  ];
+
+  // Ligne 3 : En-têtes détaillés
+  const headerRow = [
+    'Code appareil (device_fp)',
+    ...cols1.map(k => labelFor(k, FORM1_LABELS)),
+    ...cols2.map(k => labelFor(k, FORM2_LABELS)),
+  ];
+
+  // Lignes de données
+  function extractVal(payload: any, key: string, createdAt: string): string {
+    if (key === '_id') return String(payload._id ?? '');
+    if (key === '_submission_time') {
+      const v = payload._submission_time || createdAt;
+      return v ? new Date(v).toLocaleString('fr-FR') : '';
+    }
+    return formatAnswer(payload[key]);
+  }
+
+  const dataRows = pairedFps.map(fp => {
+    const r1 = map1.get(fp)!;
+    const r2 = map2.get(fp)!;
+    return [
+      fp,
+      ...cols1.map(k => extractVal(r1.payload, k, r1.created_at)),
+      ...cols2.map(k => extractVal(r2.payload, k, r2.created_at)),
+    ];
+  });
+
+  const aoa = [titleRow, sectionRow, headerRow, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  const nc = totalCols;
+  const nr = aoa.length;
+
+  // ── Fusions ────────────────────────────────────────────────────────────
+  ws['!merges'] = [
+    // Titre : toute la largeur
+    { s: { r: 0, c: 0 }, e: { r: 0, c: nc - 1 } },
+    // Section "Code appareil" (1 seule colonne, pas de fusion)
+    // Section "Genre & Inclusion"
+    { s: { r: 1, c: 1 }, e: { r: 1, c: cols1.length } },
+    // Section "Vie des Étudiants"
+    { s: { r: 1, c: 1 + cols1.length }, e: { r: 1, c: nc - 1 } },
+  ];
+
+  // ── Style titre ────────────────────────────────────────────────────────
+  const titleCell = ws[XLSX.utils.encode_cell({ r: 0, c: 0 })];
+  if (titleCell) titleCell.s = {
+    font: { bold: true, sz: 14, color: { rgb: PALETTE.titleFg }, name: 'Calibri' },
+    fill: { patternType: 'solid', fgColor: { rgb: PALETTE.titleBg } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: { bottom: { style: 'medium', color: { rgb: PALETTE.headerBorder } } },
+  };
+
+  // ── Style sections (ligne 2) ───────────────────────────────────────────
+  const SECTION_COLORS = [
+    { bg: '0F3460', fg: 'FFFFFF' }, // Code appareil — bleu nuit
+    { bg: '155835', fg: 'FFFFFF' }, // Genre & Inclusion — vert foncé
+    { bg: '4A1A7C', fg: 'FFFFFF' }, // Vie des Étudiants — violet foncé
+  ];
+  const sectionDefs = [
+    { start: 0, end: 0, ci: 0 },
+    { start: 1, end: cols1.length, ci: 1 },
+    { start: 1 + cols1.length, end: nc - 1, ci: 2 },
+  ];
+  for (const { start, end, ci } of sectionDefs) {
+    for (let c = start; c <= end; c++) {
+      const addr = XLSX.utils.encode_cell({ r: 1, c });
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      ws[addr].s = {
+        font: { bold: true, sz: 11, color: { rgb: SECTION_COLORS[ci].fg }, name: 'Calibri' },
+        fill: { patternType: 'solid', fgColor: { rgb: SECTION_COLORS[ci].bg } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: {
+          bottom: { style: 'medium', color: { rgb: PALETTE.headerBorder } },
+          left:   { style: 'thin',   color: { rgb: 'FFFFFF' } },
+          right:  { style: 'thin',   color: { rgb: 'FFFFFF' } },
+        },
+      };
+    }
+  }
+
+  // ── Style en-têtes détaillés (ligne 3) ────────────────────────────────
+  const COL_SECTION: number[] = [
+    0,                                          // Code appareil
+    ...Array(cols1.length).fill(1),             // Form1
+    ...Array(cols2.length).fill(2),             // Form2
+  ];
+  const HEADER_BG = ['0F3460', '1E3A5F', '3B1A6A'];
+  for (let c = 0; c < nc; c++) {
+    const cell = ws[XLSX.utils.encode_cell({ r: 2, c })];
+    if (cell) cell.s = {
+      font: { bold: true, sz: 9, color: { rgb: PALETTE.headerFg }, name: 'Calibri' },
+      fill: { patternType: 'solid', fgColor: { rgb: HEADER_BG[COL_SECTION[c]] } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border: {
+        bottom: { style: 'medium', color: { rgb: PALETTE.headerBorder } },
+        left:   { style: 'thin',   color: { rgb: '2A4A6A' } },
+        right:  { style: 'thin',   color: { rgb: '2A4A6A' } },
+      },
+    };
+  }
+
+  // ── Style lignes de données ────────────────────────────────────────────
+  // Fond alterné : même teinte mais légèrement différente par section
+  const SECTION_EVEN = ['E8F0FF', 'E8F5EE', 'F0E8FF'];
+  const SECTION_ODD  = ['F5F8FF', 'F5FBF7', 'FAF5FF'];
+
+  for (let r = 3; r < nr; r++) {
+    const isEven = (r - 3) % 2 === 0;
+    for (let c = 0; c < nc; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      const cellVal = String(ws[addr].v || '');
+      const isEmpty = !cellVal || cellVal === '—';
+      const accent = isEmpty ? null : getCellAccent(cellVal);
+      const sec = COL_SECTION[c];
+
+      ws[addr].s = {
+        font: {
+          sz: 9, name: 'Calibri', italic: isEmpty,
+          color: { rgb: isEmpty ? PALETTE.emptyFg : (accent ? accent.fg : PALETTE.rowFg) },
+          bold: c === 0, // device_fp en gras
+        },
+        fill: {
+          patternType: 'solid',
+          fgColor: { rgb: accent ? accent.bg : (isEven ? SECTION_EVEN[sec] : SECTION_ODD[sec]) },
+        },
+        alignment: {
+          vertical: 'center',
+          horizontal: c === 0 ? 'center' : 'left',
+          wrapText: false,
+        },
+        border: {
+          bottom: { style: 'hair', color: { rgb: PALETTE.rowBorder } },
+          top:    { style: 'hair', color: { rgb: PALETTE.rowBorder } },
+          // Séparateur visuel entre les sections
+          left:   { style: c === 0 || c === 1 || c === 1 + cols1.length ? 'thin' : 'hair',
+                    color: { rgb: c === 1 + cols1.length ? '9B59B6' : PALETTE.rowBorder } },
+          right:  { style: 'hair', color: { rgb: PALETTE.rowBorder } },
+        },
+      };
+    }
+  }
+
+  // ── Largeurs de colonnes ───────────────────────────────────────────────
+  ws['!cols'] = [
+    { wch: 16 }, // device_fp
+    ...cols1.map((k, i) => {
+      const hLen = headerRow[1 + i].length;
+      const dLen = Math.max(...dataRows.map(row => String(row[1 + i] || '').length), 0);
+      return { wch: Math.min(Math.max(hLen, dLen, 10), 40) };
+    }),
+    ...cols2.map((k, i) => {
+      const hLen = headerRow[1 + cols1.length + i].length;
+      const dLen = Math.max(...dataRows.map(row => String(row[1 + cols1.length + i] || '').length), 0);
+      return { wch: Math.min(Math.max(hLen, dLen, 10), 40) };
+    }),
+  ];
+
+  // ── Hauteurs de lignes ─────────────────────────────────────────────────
+  ws['!rows'] = [
+    { hpt: 32 }, // titre
+    { hpt: 28 }, // sections
+    { hpt: 36 }, // en-têtes
+    ...Array(nr - 3).fill({ hpt: 18 }),
+  ];
+
+  return ws;
+}
+
 // ─── Route GET ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -344,7 +583,7 @@ export async function GET(req: NextRequest) {
       all.sort((a, b) => String(a.form || '').localeCompare(String(b.form || '')));
     }
 
-    // ── Export XLSX : 2 feuilles séparées, stylisées ──────────────────────
+    // ── Export XLSX : 2 feuilles séparées + 1 feuille de couplage ──────────
     if (format === 'xlsx') {
       const form1 = all.filter(r => String(r.form).toLowerCase().includes('genre'));
       const form2 = all.filter(r => { const f = String(r.form).toLowerCase(); return f.includes('vie') || f.includes('etudiant'); });
@@ -356,6 +595,10 @@ export async function GET(req: NextRequest) {
 
       const ws2 = buildStyledSheet(form2, FORM2_LABELS, PRIORITY_KEYS_FORM2, 'Vie des Etudiants');
       XLSX.utils.book_append_sheet(wb, ws2, 'Vie des Etudiants');
+
+      // Feuille de couplage : uniquement les appareils ayant soumis les deux formulaires
+      const wsCoupling = buildCouplingSheet(form1, form2);
+      XLSX.utils.book_append_sheet(wb, wsCoupling, 'Couplage');
 
       const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
       const today = new Date().toISOString().split('T')[0];

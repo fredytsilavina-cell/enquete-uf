@@ -14,7 +14,16 @@ type Status = "available" | "submitted";
 function appendQuery(url: string, params: Record<string, string>) {
   try {
     const parsed = new URL(url);
-    Object.entries(params).forEach(([key, value]) => parsed.searchParams.set(key, value));
+    Object.entries(params).forEach(([key, value]) => {
+      // KoboToolbox Enketo : le pré-remplissage d'un champ de formulaire
+      // utilise le format  d[nom_du_champ]=valeur
+      // Les autres paramètres (return_url, form) sont passés normalement
+      if (key === "device_fp") {
+        parsed.searchParams.set(`d[${key}]`, value);
+      } else {
+        parsed.searchParams.set(key, value);
+      }
+    });
     return parsed.toString();
   } catch {
     return url;
