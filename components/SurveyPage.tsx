@@ -525,6 +525,36 @@ export default function SurveyPage() {
                 }}
               >{item.label}</a>
             ))}
+
+            {/* ── CTA buttons in mobile menu ── */}
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <a href="/admin/login"
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: 6, padding: "11px 12px", borderRadius: 99,
+                  background: "#0d1b2a", color: "#fff",
+                  fontWeight: 700, fontSize: 14, textDecoration: "none",
+                }}
+              >
+                {t.login}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </a>
+              <a href="#forms"
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: 6, padding: "11px 12px", borderRadius: 99,
+                  background: "transparent", color: "#0d1b2a",
+                  fontWeight: 700, fontSize: 14, textDecoration: "none",
+                  border: "2px solid #0d1b2a",
+                }}
+              >
+                {t.participate}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </a>
+            </div>
+
             <button
               onClick={() => { setLang(l => l === "fr" ? "mg" : "fr"); setMobileMenuOpen(false); }}
               style={{
