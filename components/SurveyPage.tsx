@@ -492,9 +492,9 @@ export default function SurveyPage() {
               onClick={() => setMobileMenuOpen(o => !o)}
               aria-label="Menu"
               style={{
-                display: "none",
                 background: "none", border: "none", cursor: "pointer",
                 padding: "6px", borderRadius: 8, color: "#0d1b2a",
+                alignItems: "center", justifyContent: "center",
               }}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

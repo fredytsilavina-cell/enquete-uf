@@ -468,3 +468,105 @@ a:focus-visible, button:focus-visible {
   outline-offset: 3px;
   border-radius: 4px;
 }
+
+/* ════════════════════════════════════════════
+   PUBLIC NAV — Responsive
+   ════════════════════════════════════════════ */
+
+/* Desktop : hamburger caché, liens et CTA visibles */
+.hamburger-btn   { display: none !important; }
+.nav-cta-btn     { display: inline-flex !important; }
+.nav-links-desktop { display: flex !important; }
+
+@media (max-width: 700px) {
+  /* Masquer liens + CTA dans la barre, afficher hamburger */
+  .nav-links-desktop { display: none !important; }
+  .nav-cta-btn       { display: none !important; }
+  .hamburger-btn     { display: flex !important; }
+}
+
+/* ════════════════════════════════════════════
+   HERO — Responsive
+   ════════════════════════════════════════════ */
+.hero-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  min-height: 480px;
+  position: relative;
+}
+.hero-text {
+  position: relative;
+  z-index: 2;
+}
+.hero-image-wrap {
+  position: relative;
+  min-height: 380px;
+}
+.hero-title {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+}
+
+@media (max-width: 860px) {
+  .hero-inner {
+    grid-template-columns: 1fr;
+  }
+  .hero-image-wrap {
+    display: none;
+  }
+  .hero-text {
+    max-width: 640px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 1.75rem;
+  }
+  .hero-badges {
+    gap: 8px;
+  }
+}
+
+/* ════════════════════════════════════════════
+   FORMS GRID — Responsive
+   ════════════════════════════════════════════ */
+.forms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+/* ════════════════════════════════════════════
+   TILES — Responsive
+   ════════════════════════════════════════════ */
+.tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+/* ════════════════════════════════════════════
+   STEPPER — Responsive
+   ════════════════════════════════════════════ */
+.stepper-label {
+  max-width: 80px;
+}
+
+@media (max-width: 400px) {
+  .stepper-label {
+    display: none;
+  }
+}
+
+/* ════════════════════════════════════════════
+   STATS BAR — Responsive
+   ════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .stats-bar {
+    gap: 20px !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap;
+    padding: 0 4px;
+  }
+}
