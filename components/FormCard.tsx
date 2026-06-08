@@ -3,11 +3,25 @@ import { useState } from "react";
 import Image from "next/image";
 import { IconCheck, IconExternalLink } from "./icons";
 
+interface FormCardLabels {
+  statusDone: string;
+  statusUnavailable: string;
+  statusAvailable: string;
+  doneOverlayTitle: string;
+  doneOverlayDesc: string;
+  lockedTitle: string;
+  lockedSub: string;
+  unavailableTitle: string;
+  unavailableDesc: string;
+  unavailableStatus: string;
+  cta: string;
+}
+
 interface FormCardProps {
   number: 1 | 2;
   title: string;
   description: string;
-  topics: string[];
+  topics: readonly string[];
   imageSrc: string;
   imageAlt: string;
   url: string;
@@ -15,13 +29,29 @@ interface FormCardProps {
   disabled?: boolean;
   disabledLabel?: string;
   onOpen: () => void;
+  labels?: FormCardLabels;
 }
+
+const defaultLabels: FormCardLabels = {
+  statusDone: "Soumis",
+  statusUnavailable: "Indisponible",
+  statusAvailable: "Disponible",
+  doneOverlayTitle: "Formulaire soumis",
+  doneOverlayDesc: "Merci pour votre contribution",
+  lockedTitle: "Réponses enregistrées",
+  lockedSub: "Ce formulaire est verrouillé",
+  unavailableTitle: "Formulaire indisponible",
+  unavailableDesc: "Ce formulaire n'est pas encore activé par l'administrateur. La page se met à jour automatiquement dès qu'il sera ouvert.",
+  unavailableStatus: "En attente d'activation · Synchronisation en temps réel",
+  cta: "Remplir le formulaire",
+};
 
 export default function FormCard({
   number, title, description, topics,
   imageSrc, imageAlt, url, status, disabled, disabledLabel,
-  onOpen,
+  onOpen, labels,
 }: FormCardProps) {
+  const L = { ...defaultLabels, ...labels };
   const isDone = status === "submitted";
   const [hovered, setHovered] = useState(false);
 
@@ -89,7 +119,7 @@ export default function FormCard({
           display: "flex", alignItems: "center", gap: 6,
           background: isDone ? "rgba(45,106,79,0.92)" : disabled ? "rgba(220,38,38,0.85)" : "rgba(255,255,255,0.15)",
           border: isDone ? "none" : disabled ? "none" : "1px solid rgba(255,255,255,0.3)",
-          color: isDone ? "#fff" : disabled ? "#fff" : "#fff",
+          color: "#fff",
           borderRadius: 99, padding: "5px 13px",
           fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
           backdropFilter: "blur(10px)",
@@ -100,9 +130,9 @@ export default function FormCard({
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-              Soumis
+              {L.statusDone}
             </>
-          ) : disabled ? "Indisponible" : "Disponible"}
+          ) : disabled ? L.statusUnavailable : L.statusAvailable}
         </div>
 
         {/* Title on image — available state */}
@@ -121,7 +151,6 @@ export default function FormCard({
             display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: 10,
           }}>
-            {/* Large check circle */}
             <div style={{
               width: 56, height: 56, borderRadius: "50%",
               background: "var(--success)",
@@ -134,10 +163,10 @@ export default function FormCard({
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", textAlign: "center", letterSpacing: "0.01em" }}>
-                Formulaire soumis
+                {L.doneOverlayTitle}
               </div>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", textAlign: "center", marginTop: 3 }}>
-                Merci pour votre contribution
+                {L.doneOverlayDesc}
               </div>
             </div>
           </div>
@@ -176,12 +205,10 @@ export default function FormCard({
 
         {/* CTA */}
         {isDone ? (
-          /* ── Submitted state: locked, not clickable ── */
           <div style={{
             width: "100%", borderRadius: 14, overflow: "hidden",
             border: "1px solid var(--success-border)",
           }}>
-            {/* Top row: success message */}
             <div style={{
               display: "flex", alignItems: "center", gap: 10,
               padding: "13px 18px",
@@ -198,13 +225,12 @@ export default function FormCard({
               </div>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "var(--success)", letterSpacing: "0.01em" }}>
-                  Réponses enregistrées
+                  {L.lockedTitle}
                 </div>
                 <div style={{ fontSize: 11, color: "#4a9070", marginTop: 1 }}>
-                  Ce formulaire est verrouillé
+                  {L.lockedSub}
                 </div>
               </div>
-              {/* Lock icon */}
               <div style={{ marginLeft: "auto", color: "var(--success)", opacity: 0.6 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -218,13 +244,11 @@ export default function FormCard({
             width: "100%", borderRadius: 14, overflow: "hidden",
             border: "1px solid #fecaca",
           }}>
-            {/* Bannière "formulaire indisponible" */}
             <div style={{
               display: "flex", alignItems: "flex-start", gap: 12,
               padding: "14px 18px",
               background: "linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%)",
             }}>
-              {/* Icône alerte */}
               <div style={{
                 width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
                 background: "#fee2e2", color: "#dc2626",
@@ -239,14 +263,13 @@ export default function FormCard({
               </div>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b", marginBottom: 4 }}>
-                  Formulaire indisponible
+                  {L.unavailableTitle}
                 </div>
                 <div style={{ fontSize: 12, color: "#dc2626", lineHeight: 1.55 }}>
-                  Ce formulaire n&apos;est pas encore activé par l&apos;administrateur. La page se met à jour automatiquement dès qu&apos;il sera ouvert.
+                  {L.unavailableDesc}
                 </div>
               </div>
             </div>
-            {/* Barre statut temps réel */}
             <div style={{
               display: "flex", alignItems: "center", gap: 7,
               padding: "8px 18px",
@@ -260,7 +283,7 @@ export default function FormCard({
                 animation: "pulse-unavail 2s infinite",
               }} />
               <span style={{ fontSize: 11, color: "#b91c1c", fontWeight: 600 }}>
-                En attente d&apos;activation · Synchronisation en temps réel
+                {L.unavailableStatus}
               </span>
             </div>
             <style>{`
@@ -271,7 +294,6 @@ export default function FormCard({
             `}</style>
           </div>
         ) : (
-          /* ── Available state: clickable gold button ── */
           <a
             href={url}
             target="_blank"
@@ -285,7 +307,7 @@ export default function FormCard({
             }}
           >
             <IconExternalLink size={14} />
-            Remplir le formulaire {number}
+            {L.cta}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2 }}>
               <line x1="5" y1="12" x2="19" y2="12"/>
               <polyline points="12 5 19 12 12 19"/>
@@ -296,3 +318,4 @@ export default function FormCard({
     </div>
   );
 }
+

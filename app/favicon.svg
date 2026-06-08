@@ -1,24 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Fond circulaire dégradé navy -->
-  <circle cx="32" cy="32" r="32" fill="#0d1b2a"/>
-
-  <!-- Mortier (graduation cap) — plateau -->
-  <polygon points="32,14 56,24 32,34 8,24" fill="#c9a84c"/>
-
-  <!-- Reliefs dorés sur le plateau -->
-  <polygon points="32,14 56,24 32,24" fill="#e8c96a" opacity="0.45"/>
-
-  <!-- Tige verticale du mortier -->
-  <rect x="30" y="34" width="4" height="13" rx="2" fill="#c9a84c"/>
-
-  <!-- Capsule de diplôme au bout de la tige -->
-  <rect x="26" y="47" width="12" height="6" rx="3" fill="#c9a84c"/>
-  <rect x="26" y="47" width="12" height="2.5" rx="1.5" fill="#e8c96a" opacity="0.6"/>
-
-  <!-- Cordelière pendante (côté droit) -->
-  <line x1="52" y1="24" x2="52" y2="36" stroke="#c9a84c" stroke-width="2.2" stroke-linecap="round"/>
-  <circle cx="52" cy="38" r="2.5" fill="#c9a84c"/>
-
-  <!-- Accent doré : fine ligne sous le plateau -->
-  <ellipse cx="32" cy="34.5" rx="24" ry="1.2" fill="#a8863e" opacity="0.35"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Fond carré arrondi bleu marine -->
+  <rect x="0" y="0" width="100" height="100" rx="20" fill="#0D1B2A"/>
+  <!-- Plateau du mortarboard -->
+  <polygon points="50,18 90,38 50,52 10,38" fill="#C9A84C"/>
+  <!-- Ombres plateau -->
+  <polygon points="10,38 50,52 50,57 10,43" fill="#a8873a"/>
+  <polygon points="90,38 50,52 50,57 90,43" fill="#b8963f"/>
+  <!-- Chapeau cylindrique -->
+  <ellipse cx="50" cy="57" rx="19" ry="5" fill="#1a3352"/>
+  <rect x="31" y="40" width="38" height="18" fill="#1a3352"/>
+  <ellipse cx="50" cy="40" rx="19" ry="5" fill="#22416a"/>
+  <!-- Cordon -->
+  <line x1="90" y1="38" x2="90" y2="58" stroke="#C9A84C" stroke-width="2.5"/>
+  <circle cx="90" cy="61" r="4" fill="#C9A84C"/>
+  <!-- Pompon -->
+  <line x1="90" y1="65" x2="85" y2="75" stroke="#C9A84C" stroke-width="1.5"/>
+  <line x1="90" y1="65" x2="90" y2="76" stroke="#C9A84C" stroke-width="1.5"/>
+  <line x1="90" y1="65" x2="95" y2="75" stroke="#C9A84C" stroke-width="1.5"/>
 </svg>

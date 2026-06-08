@@ -10,6 +10,150 @@ import {
 } from "./icons";
 
 type Status = "available" | "submitted";
+type Lang = "fr" | "mg";
+
+const translations = {
+  fr: {
+    lang: "fr",
+    langLabel: "MG",
+    // Nav
+    home: "Accueil",
+    forms: "Formulaires",
+    login: "Connexion",
+    participate: "Participer",
+    // Hero badges
+    deviceCode: "Code de liaison",
+    minutesEstimated: "Minutes estimées",
+    estimatedDuration: "Durée estimée",
+    // Stats
+    statForms: "Formulaires",
+    statAnon: "Anonymat garanti",
+    // Hero
+    heroTitle: <>La meilleure enquête{" "}<span style={{ color: "#a8863e", fontStyle: "italic" }}>étudiante</span>{" "}pour tous !</>,
+    heroDesc: "Participez à notre étude sur le genre, l'inclusion et la vie des étudiants à l'Université de Fianarantsoa. Deux formulaires, anonymat total.",
+    heroProgress: "Progression",
+    heroProgressCount: (n: number) => `${n}/2 formulaires`,
+    heroCTA: "Commencer les formulaires",
+    // About
+    aboutTag: "À propos",
+    aboutTitle: "Participez, contribuez & faites avancer la recherche.",
+    aboutDesc: "Votre participation aide à mieux comprendre les conditions de vie et d'inclusion au sein de l'université, pour un campus plus équitable pour tous.",
+    aboutFeature1Title: "Anonymat total garanti",
+    aboutFeature1Desc: "Aucune donnée nominative n'est collectée. Un identifiant technique anonyme relie vos deux formulaires.",
+    aboutFeature2Title: "Participation entièrement libre",
+    aboutFeature2Desc: "Vous pouvez interrompre à tout moment. Votre contribution reste précieuse même partielle.",
+    aboutLink: "Accéder aux formulaires",
+    // Forms section
+    formsTitle: "Remplissez les deux formulaires",
+    formsDesc: "Chaque formulaire aborde un thème distinct. Complétez-les dans l'ordre de votre choix.",
+    formDesc1: "Explorez les représentations de genre, les obstacles à l'inclusion et le vécu des étudiants face aux inégalités au sein de l'université.",
+    formDesc2: "Partagez votre expérience de la vie étudiante : logement, alimentation, finances, soutien académique et bien-être général.",
+    formTopics1: ["Genre", "Inclusion", "Égalité"],
+    formTopics2: ["Logement", "Finances", "Bien-être"],
+    // Stepper
+    stepperStep1: "Formulaire 1",
+    stepperStep2: "Formulaire 2",
+    stepperStep3: "Complété",
+    // All done
+    allDoneTitle: "Merci pour votre participation complète !",
+    allDoneDesc: "Vos deux réponses ont été soumises anonymement et contribuent à la recherche de l'Université de Fianarantsoa.",
+    // Progress badge
+    submitted: (n: number) => `${n}/2 soumis`,
+    // Tiles
+    tilesTitle: "Pourquoi participer ?",
+    tilesDesc: "Votre voix compte pour améliorer la vie sur notre campus.",
+    // Footer
+    footerName: "Université de Fianarantsoa",
+    footerSub: "Enquête confidentielle · Traitement éthique des données de recherche",
+    // Toast
+    toastAllTitle: "Merci pour votre participation !",
+    toastAllDesc: "Vos deux réponses ont été soumises anonymement.",
+    toastFormTitle: (n: number) => `Formulaire ${n} enregistré !`,
+    toastFormDesc: "Merci ! Pensez à remplir le deuxième formulaire.",
+    // FormCard buttons & labels
+    cardStatusDone: "Soumis",
+    cardStatusUnavailable: "Indisponible",
+    cardStatusAvailable: "Disponible",
+    cardDoneOverlayTitle: "Formulaire soumis",
+    cardDoneOverlayDesc: "Merci pour votre contribution",
+    cardLockedTitle: "Réponses enregistrées",
+    cardLockedSub: "Ce formulaire est verrouillé",
+    cardUnavailableTitle: "Formulaire indisponible",
+    cardUnavailableDesc: "Ce formulaire n'est pas encore activé par l'administrateur. La page se met à jour automatiquement dès qu'il sera ouvert.",
+    cardUnavailableStatus: "En attente d'activation · Synchronisation en temps réel",
+    cardCTA: (n: number) => `Remplir le formulaire ${n}`,
+  },
+  mg: {
+    lang: "mg",
+    langLabel: "FR",
+    // Nav
+    home: "Fandraisana",
+    forms: "Fanadihadiana",
+    login: "Miditra",
+    participate: "Handray Anjara",
+    // Hero badges
+    deviceCode: "Kaody famantarana",
+    minutesEstimated: "Minitra ilaina",
+    estimatedDuration: "Hataon'ny fotoana",
+    // Stats
+    statForms: "Fanadihadiana",
+    statAnon: "Tsy misy hafantarana ny momba anao",
+    // Hero
+    heroTitle: <>Ny fanadihadiana lehibe{" "}<span style={{ color: "#a8863e", fontStyle: "italic" }}>ho an'ny mpianatra</span>{" "}rehetra !</>,
+    heroDesc: "Valio ny fanontanianay momba ny fiainan'ny mpianatra ao amin'ny Oniversiten'i Fianarantsoa. Fanadihadiana fohy roa no atao, ary tsy ho fantatra ny anaranao.",
+    heroProgress: "Fandrosoana",
+    heroProgressCount: (n: number) => `${n}/2 vita`,
+    heroCTA: "Manomboka izao",
+    // About
+    aboutTag: "Momba anay",
+    aboutTitle: "Valio, ampahafantaro anay, ary tohano ny fikarohana.",
+    aboutDesc: "Manampy anay ny valinteninao hahafahanay mahalala ny fiainan'ny mpianatra tsara kokoa, mba ho campus maha-tsara ho an'ny rehetra.",
+    aboutFeature1Title: "Tsy ho fantatra ny anaranao",
+    aboutFeature1Desc: "Tsy misy anarana voaangona. Isaky ny fanontaniana roanao dia mifandray amin'ny alalan'ny kaody tsy misy anarana.",
+    aboutFeature2Title: "Afaka mijanona isaky ny fotoana",
+    aboutFeature2Desc: "Tsy voatery hanatanteraka ianao. Na dia ampahany aza ny valinteninao, mahasoa ihany izany.",
+    aboutLink: "Jereo ny fanadihadiana",
+    // Forms section
+    formsTitle: "Fanadihadiana roa no atao",
+    formsDesc: "Samy hafa lohahevitra ny tsirairay. Atao amin'ny fomba tianao.",
+    formDesc1: "Momba ny fifandraisana ara-pananahana, ny fanavakavahana ary ny traikefan'ny mpianatra ao amin'ny oniversite.",
+    formDesc2: "Momba ny fiainanao andavanandro : trano, sakafo, vola, fianarana ary fahasalamana.",
+    formTopics1: ["Fananahana", "Fitoviana", "Tsy fanavakavahana"],
+    formTopics2: ["Trano", "Vola", "Fahasalamana"],
+    // Stepper
+    stepperStep1: "Fanadihadiana 1",
+    stepperStep2: "Fanadihadiana 2",
+    stepperStep3: "Vita tanteraka",
+    // All done
+    allDoneTitle: "Misaotra betsaka tamin'ny fandraisanao anjara !",
+    allDoneDesc: "Ny valinteninao roa dia voaray soa aman-tsara, ary manampy amin'ny fikarohana ao amin'ny Oniversiten'i Fianarantsoa.",
+    // Progress badge
+    submitted: (n: number) => `${n}/2 vita`,
+    // Tiles
+    tilesTitle: "Nahoana no misy dikany izao ?",
+    tilesDesc: "Ny feonao no manampy anay hanatsara ny fiainana ao amin'ny campus.",
+    // Footer
+    footerName: "Oniversiten'i Fianarantsoa",
+    footerSub: "Fanadihadiana tsiambaratelo · Ampiasaina amin'ny fikarohana ara-tsaina",
+    // Toast
+    toastAllTitle: "Misaotra betsaka !",
+    toastAllDesc: "Ny valinteninao roa dia voaray ary tsy fantatra ny anao.",
+    toastFormTitle: (n: number) => `Fanadihadiana ${n} voarakaraka !`,
+    toastFormDesc: "Tsara ! Aza adino ny fanadihadiana faharoa.",
+    // FormCard buttons & labels
+    cardStatusDone: "Vita",
+    cardStatusUnavailable: "Tsy misokatra",
+    cardStatusAvailable: "Misokatra",
+    cardDoneOverlayTitle: "Efa voaray",
+    cardDoneOverlayDesc: "Misaotra tamin'ny fandraisanao anjara",
+    cardLockedTitle: "Valiny voaray",
+    cardLockedSub: "Voaozona ity fanadihadiana ity",
+    cardUnavailableTitle: "Tsy misokatra izao",
+    cardUnavailableDesc: "Mbola tsy nohalalain'ny mpitantana ity fanadihadiana ity. Ho havaozina ho azy ity pejy ity rehefa misokatra.",
+    cardUnavailableStatus: "Miandry · Mivoatra amin'ny fotoana tena izy",
+    cardCTA: (n: number) => `Valio ny fanadihadiana ${n}`,
+  },
+} as const;
 
 function appendQuery(url: string, params: Record<string, string>) {
   try {
@@ -69,12 +213,13 @@ function useScrollReveal() {
 
 export default function SurveyPage() {
   const fp = useFingerprint();
+  const [lang, setLang] = useState<Lang>("fr");
+  const t = translations[lang];
   const [s1, setS1] = useState<Status>("available");
   const [s2, setS2] = useState<Status>("available");
   const [allDone, setAllDone] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [copiedFp, setCopiedFp] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; form: 1 | 2 | "all" }>({ visible: false, form: 1 });
   const [formUrls, setFormUrls] = useState({ url1: "", url2: "" });
   const [formTitles, setFormTitles] = useState({ title1: "Genre & Inclusion", title2: "Vie des Etudiants" });
@@ -255,21 +400,21 @@ export default function SurveyPage() {
           {/* Desktop nav links */}
           <div className="nav-links-desktop" style={{ display: "flex", alignItems: "center", gap: 28 }}>
             {[
-              { label: "Accueil", href: "#" },
-              { label: "Formulaires", href: "#forms" },
+              { label: t.home, href: "#" },
+              { label: t.forms, href: "#forms" },
             ].map((item) => (
               <a key={item.label} href={item.href} style={{
                 fontSize: 13, fontWeight: 600,
-                color: item.label === "Formulaires" ? "#a8863e" : "#0d1b2a",
+                color: item.label === t.forms ? "#a8863e" : "#0d1b2a",
                 textDecoration: "none",
                 paddingBottom: 2,
-                borderBottom: item.label === "Formulaires" ? "2px solid #c9a84c" : "2px solid transparent",
+                borderBottom: item.label === t.forms ? "2px solid #c9a84c" : "2px solid transparent",
                 transition: "color 0.2s, border-color 0.2s",
               }}>{item.label}</a>
             ))}
           </div>
 
-          {/* Right side: pill + CTA */}
+          {/* Right side: pill + lang toggle + CTA */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {doneCount > 0 && (
               <div style={{
@@ -279,9 +424,27 @@ export default function SurveyPage() {
                 animation: "scaleIn 0.4s cubic-bezier(.22,.68,0,1.2) both",
                 whiteSpace: "nowrap",
               }}>
-                {doneCount}/2 soumis
+                {t.submitted(doneCount)}
               </div>
             )}
+            {/* Language toggle */}
+            <button
+              onClick={() => setLang(l => l === "fr" ? "mg" : "fr")}
+              style={{
+                fontSize: 11, fontWeight: 700,
+                padding: "6px 12px", borderRadius: 99,
+                border: "1.5px solid #c9a84c",
+                color: "#a8863e", background: "#fdf6e3",
+                cursor: "pointer", whiteSpace: "nowrap",
+                transition: "all 0.2s",
+                letterSpacing: "0.06em",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#c9a84c"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#fdf6e3"; (e.currentTarget as HTMLElement).style.color = "#a8863e"; }}
+              title={lang === "fr" ? "Basculer en Malagasy" : "Basculer en Français"}
+            >
+              {t.langLabel}
+            </button>
             <a href="/admin/login" className="nav-cta-btn" style={{
               fontSize: 12, fontWeight: 600,
               padding: "8px 16px", borderRadius: 99,
@@ -296,7 +459,7 @@ export default function SurveyPage() {
               onMouseEnter={e => { (e.target as HTMLElement).style.background = "#0f2746"; }}
               onMouseLeave={e => { (e.target as HTMLElement).style.background = "#0d1b2a"; }}
             >
-              Connexion
+              {t.login}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12" />
                 <polyline points="12 5 19 12 12 19" />
@@ -316,7 +479,7 @@ export default function SurveyPage() {
               onMouseEnter={e => { (e.target as HTMLElement).style.background = "#0d1b2a"; (e.target as HTMLElement).style.color = "#fff"; }}
               onMouseLeave={e => { (e.target as HTMLElement).style.background = "transparent"; (e.target as HTMLElement).style.color = "#0d1b2a"; }}
             >
-              Participer
+              {t.participate}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12" />
                 <polyline points="12 5 19 12 12 19" />
@@ -351,17 +514,27 @@ export default function SurveyPage() {
             padding: "12px 20px 16px",
             display: "flex", flexDirection: "column", gap: 4,
           }}>
-            {[{ label: "Accueil", href: "#" }, { label: "Formulaires", href: "#forms" }].map(item => (
+            {[{ label: t.home, href: "#" }, { label: t.forms, href: "#forms" }].map(item => (
               <a key={item.label} href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
                 style={{
                   fontSize: 15, fontWeight: 600, padding: "10px 12px", borderRadius: 10,
-                  color: item.label === "Formulaires" ? "#a8863e" : "#0d1b2a",
+                  color: item.label === t.forms ? "#a8863e" : "#0d1b2a",
                   textDecoration: "none", display: "block",
-                  background: item.label === "Formulaires" ? "#fdf6e3" : "transparent",
+                  background: item.label === t.forms ? "#fdf6e3" : "transparent",
                 }}
               >{item.label}</a>
             ))}
+            <button
+              onClick={() => { setLang(l => l === "fr" ? "mg" : "fr"); setMobileMenuOpen(false); }}
+              style={{
+                fontSize: 14, fontWeight: 600, padding: "10px 12px", borderRadius: 10,
+                color: "#a8863e", textAlign: "left", background: "#fdf6e3",
+                border: "1px solid #e8d5a3", cursor: "pointer", marginTop: 4,
+              }}
+            >
+              🌐 {lang === "fr" ? "Malagasy" : "Français"}
+            </button>
           </div>
         )}
       </nav>
@@ -411,33 +584,9 @@ export default function SurveyPage() {
                 }}>
                   <span className="animate-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#c9a84c", flexShrink: 0 }} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", color: "#7a9ab8", marginBottom: 2, fontWeight: 600 }}>Appareil lié</div>
+                    <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", color: "#7a9ab8", marginBottom: 2, fontWeight: 600 }}>{t.deviceCode}</div>
                     <div style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.08em", color: "#0d1b2a", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fp}</div>
                   </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(fp);
-                      setCopiedFp(true);
-                      setTimeout(() => setCopiedFp(false), 2000);
-                    }}
-                    style={{
-                      fontSize: 10, fontWeight: 700, padding: "5px 11px", borderRadius: 7,
-                      background: copiedFp ? "var(--success-bg)" : "#fdf6e3",
-                      border: copiedFp ? "1px solid var(--success-border)" : "1px solid #e8d5a3",
-                      color: copiedFp ? "var(--success)" : "#a8863e",
-                      cursor: "pointer", whiteSpace: "nowrap",
-                      transition: "all 0.25s", flexShrink: 0,
-                    }}
-                  >
-                    {copiedFp ? (
-                      <>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:4,verticalAlign:"middle"}}>
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                        Copié
-                      </>
-                    ) : "Copier"}
-                  </button>
                 </div>
               )}
             </div>
@@ -448,21 +597,18 @@ export default function SurveyPage() {
               color: "#0d1b2a", margin: "0 0 16px 0",
               letterSpacing: "-0.01em",
             }}>
-              La meilleure enquête{" "}
-              <span style={{ color: "#a8863e", fontStyle: "italic" }}>étudiante</span>{" "}
-              pour tous !
+              {t.heroTitle}
             </h1>
 
             <p style={{ fontSize: 15, lineHeight: 1.75, color: "#3d5166", maxWidth: 420, margin: "0 0 28px 0", fontWeight: 400 }}>
-              Participez à notre étude sur le genre, l'inclusion et la vie des étudiants
-              à l'Université de Fianarantsoa. Deux formulaires, anonymat total.
+              {t.heroDesc}
             </p>
 
             {/* Progress bar */}
             <div style={{ marginBottom: 28, maxWidth: 360 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#3d5166" }}>Progression</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: doneCount === 2 ? "var(--success)" : "#a8863e" }}>{doneCount}/2 formulaires</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "#3d5166" }}>{t.heroProgress}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: doneCount === 2 ? "var(--success)" : "#a8863e" }}>{t.heroProgressCount(doneCount)}</span>
               </div>
               <div style={{ height: 7, borderRadius: 99, background: "rgba(13,27,42,0.1)", overflow: "hidden" }}>
                 <div style={{
@@ -486,7 +632,7 @@ export default function SurveyPage() {
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 30px rgba(13,27,42,0.35)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(13,27,42,0.25)"; }}
             >
-              Commencer les formulaires
+              {t.heroCTA}
               <IconArrowRight size={16} />
             </a>
           </div>
@@ -517,18 +663,18 @@ export default function SurveyPage() {
       }}>
         <div className="stats-bar" style={{ maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
           {[
-            { label: "Formulaires", value: 2, suffix: "", icon: (
+            { label: t.statForms, value: 2, suffix: "", icon: (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
                 <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
               </svg>
             )},
-            { label: "Anonymat garanti", value: 100, suffix: "%", icon: (
+            { label: t.statAnon, value: 100, suffix: "%", icon: (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
             )},
-            { label: "Minutes estimées", value: 10, suffix: "min", icon: (
+            { label: t.minutesEstimated, value: 30, suffix: "min", icon: (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
@@ -580,28 +726,27 @@ export default function SurveyPage() {
               sizes="(max-width: 640px) 100vw, 480px"
             />
             <div style={{ position: "absolute", bottom: 0, left: 0, background: "#fff", padding: "14px 20px", borderTop: "3px solid #c9a84c" }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#a8863e", fontFamily: "var(--font-serif)" }}>~10 min</div>
-              <div style={{ fontSize: 12, color: "#3d5166", marginTop: 2, fontWeight: 500 }}>Durée estimée</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#a8863e", fontFamily: "var(--font-serif)" }}>~30 min</div>
+              <div style={{ fontSize: 12, color: "#3d5166", marginTop: 2, fontWeight: 500 }}>{t.estimatedDuration}</div>
             </div>
           </div>
 
           <div className="about-text">
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--gold-bg)", border: "1px solid var(--gold-border)", borderRadius: 99, padding: "5px 14px", marginBottom: 16 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--gold)", display: "inline-block" }} />
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--gold-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>À propos</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--gold-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{t.aboutTag}</span>
             </div>
 
             <h2 style={{ fontFamily: "var(--font-serif)", fontWeight: 400, color: "#0d1b2a", lineHeight: 1.15, margin: "0 0 14px 0", letterSpacing: "-0.01em" }}>
-              Participez, contribuez & faites avancer la recherche.
+              {t.aboutTitle}
             </h2>
             <p style={{ fontSize: 14, color: "#3d5166", lineHeight: 1.75, marginBottom: 28, maxWidth: 480 }}>
-              Votre participation aide à mieux comprendre les conditions de vie et d'inclusion
-              au sein de l'université, pour un campus plus équitable pour tous.
+              {t.aboutDesc}
             </p>
 
             {[
-              { icon: <IconShield size={18} />, title: "Anonymat total garanti", desc: "Aucune donnée nominative n'est collectée. Un identifiant technique anonyme relie vos deux formulaires." },
-              { icon: <IconVolunteer size={18} />, title: "Participation entièrement libre", desc: "Vous pouvez interrompre à tout moment. Votre contribution reste précieuse même partielle." },
+              { icon: <IconShield size={18} />, title: t.aboutFeature1Title, desc: t.aboutFeature1Desc },
+              { icon: <IconVolunteer size={18} />, title: t.aboutFeature2Title, desc: t.aboutFeature2Desc },
             ].map((item, i) => (
               <div key={item.title} style={{
                 display: "flex", gap: 14, marginBottom: 20,
@@ -630,7 +775,7 @@ export default function SurveyPage() {
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(13,27,42,0.12)"}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "rgba(13,27,42,0.06)"}
             >
-              Accéder aux formulaires
+              {t.aboutLink}
               <IconArrowRight size={16} />
             </a>
           </div>
@@ -653,8 +798,8 @@ export default function SurveyPage() {
               <IconCheck size={18} />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--success)", fontFamily: "var(--font-serif)" }}>Merci pour votre participation !</div>
-              <div style={{ fontSize: 12, color: "#3d7a5f", lineHeight: 1.6, marginTop: 2 }}>Vos deux formulaires ont bien été soumis de façon anonyme.</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--success)", fontFamily: "var(--font-serif)" }}>{t.allDoneTitle}</div>
+              <div style={{ fontSize: 12, color: "#3d7a5f", lineHeight: 1.6, marginTop: 2 }}>{t.allDoneDesc}</div>
             </div>
           </div>
         )}
@@ -670,9 +815,9 @@ export default function SurveyPage() {
           gap: 0,
         }}>
           {[
-            { state: sc1, label: formTitles.title1, sub: "Formulaire 1" },
-            { state: sc2, label: formTitles.title2, sub: "Formulaire 2" },
-            { state: sc3, label: "Participation complète", sub: "Terminé" },
+            { state: sc1, label: formTitles.title1, sub: t.stepperStep1 },
+            { state: sc2, label: formTitles.title2, sub: t.stepperStep2 },
+            { state: sc3, label: t.allDoneTitle, sub: t.stepperStep3 },
           ].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -710,8 +855,8 @@ export default function SurveyPage() {
             transition: "opacity 0.6s ease, transform 0.6s ease",
           }}
         >
-          <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 32, fontWeight: 400, color: "#0d1b2a", margin: "0 0 6px 0", letterSpacing: "-0.01em" }}>Les deux formulaires</h2>
-          <p style={{ fontSize: 13, color: "#7a9ab8", margin: 0 }}>Remplissez-les sur le même appareil pour assurer la liaison anonyme</p>
+          <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 32, fontWeight: 400, color: "#0d1b2a", margin: "0 0 6px 0", letterSpacing: "-0.01em" }}>{t.formsTitle}</h2>
+          <p style={{ fontSize: 13, color: "#7a9ab8", margin: 0 }}>{t.formsDesc}</p>
         </div>
 
         {/* Cards */}
@@ -719,26 +864,52 @@ export default function SurveyPage() {
           <FormCard
             number={1}
             title={formTitles.title1}
-            description="Ce formulaire porte sur les perceptions et expériences liées au genre, à l'égalité et à l'inclusion au sein de l'université."
-            topics={["Égalité de genre", "Inclusion", "Perceptions", "Campus"]}
+            description={t.formDesc1}
+            topics={t.formTopics1}
             imageSrc="/form1.webp"
             imageAlt="Groupe d'étudiants"
             url={u1}
             status={s1}
             disabled={disabled1}
             onOpen={handleOpenF1}
+            labels={{
+              statusDone: t.cardStatusDone,
+              statusUnavailable: t.cardStatusUnavailable,
+              statusAvailable: t.cardStatusAvailable,
+              doneOverlayTitle: t.cardDoneOverlayTitle,
+              doneOverlayDesc: t.cardDoneOverlayDesc,
+              lockedTitle: t.cardLockedTitle,
+              lockedSub: t.cardLockedSub,
+              unavailableTitle: t.cardUnavailableTitle,
+              unavailableDesc: t.cardUnavailableDesc,
+              unavailableStatus: t.cardUnavailableStatus,
+              cta: t.cardCTA(1),
+            }}
           />
           <FormCard
             number={2}
             title={formTitles.title2}
-            description="Ce formulaire explore les conditions de vie, le bien-être et les expériences quotidiennes des étudiants à l'université."
-            topics={["Bien-être", "Logement", "Vie sociale", "Parcours"]}
+            description={t.formDesc2}
+            topics={t.formTopics2}
             imageSrc="/form2.webp"
             imageAlt="Bibliothèque universitaire"
             url={u2}
             status={s2}
             disabled={disabled2}
             onOpen={handleOpenF2}
+            labels={{
+              statusDone: t.cardStatusDone,
+              statusUnavailable: t.cardStatusUnavailable,
+              statusAvailable: t.cardStatusAvailable,
+              doneOverlayTitle: t.cardDoneOverlayTitle,
+              doneOverlayDesc: t.cardDoneOverlayDesc,
+              lockedTitle: t.cardLockedTitle,
+              lockedSub: t.cardLockedSub,
+              unavailableTitle: t.cardUnavailableTitle,
+              unavailableDesc: t.cardUnavailableDesc,
+              unavailableStatus: t.cardUnavailableStatus,
+              cta: t.cardCTA(2),
+            }}
           />
         </div>
 
@@ -753,9 +924,9 @@ export default function SurveyPage() {
           className="tiles-grid"
         >
           {[
-            { icon: <IconShield size={18} />, title: "Données protégées", body: "Aucune donnée nominative n'est enregistrée. Liaison par empreinte technique uniquement.", color: "#a8863e", bg: "#fdf6e3", delay: 0 },
-            { icon: <IconPhone size={18} />, title: "Même appareil requis", body: "Utilisez le même téléphone ou ordinateur pour assurer la correspondance des formulaires.", color: "#4a7fa8", bg: "#eef4fa", delay: 0.1 },
-            { icon: <IconVolunteer size={18} />, title: "Participation volontaire", body: "Votre participation est entièrement libre. Vous pouvez interrompre à tout moment.", color: "#2d6a4f", bg: "#e8f4ee", delay: 0.2 },
+            { icon: <IconShield size={18} />, title: lang === "fr" ? "Données protégées" : "Angona voaro", body: lang === "fr" ? "Aucune donnée nominative n'est enregistrée. Liaison par empreinte technique uniquement." : "Tsy misy angona misy anarana voarakitra. Fampifandraisana amin'ny fanitsiana teknika ihany.", color: "#a8863e", bg: "#fdf6e3", delay: 0 },
+            { icon: <IconPhone size={18} />, title: lang === "fr" ? "Même appareil requis" : "Fitaovana mitovy ilaina", body: lang === "fr" ? "Utilisez le même téléphone ou ordinateur pour assurer la correspondance des formulaires." : "Ampiasao ny telefaona na solosaina mitovy mba hanamarina ny fampifandraisana ny fanontaniana.", color: "#4a7fa8", bg: "#eef4fa", delay: 0.1 },
+            { icon: <IconVolunteer size={18} />, title: lang === "fr" ? "Participation volontaire" : "Fandraisan'anjara malalaka", body: lang === "fr" ? "Votre participation est entièrement libre. Vous pouvez interrompre à tout moment." : "Ny fandraisan'anjara anao dia malalaka tanteraka. Afaka mijanona ianao amin'ny fotoana rehetra.", color: "#2d6a4f", bg: "#e8f4ee", delay: 0.2 },
           ].map((tile) => (
             <div
               key={tile.title}
@@ -784,11 +955,11 @@ export default function SurveyPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 8 }}>
           <span style={{ color: "#c9a84c" }}><IconDiploma size={22} /></span>
           <span style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-serif)", letterSpacing: "0.03em", color: "#1a2e44" }}>
-            Université de Fianarantsoa
+            {t.footerName}
           </span>
         </div>
         <p style={{ fontSize: 11, color: "#5a7fa0", margin: 0, letterSpacing: "0.03em" }}>
-          Enquête confidentielle · Traitement éthique des données de recherche
+          {t.footerSub}
         </p>
       </footer>
 
@@ -926,12 +1097,12 @@ export default function SurveyPage() {
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: "var(--font-serif)", marginBottom: 3, letterSpacing: "-0.01em" }}>
-              {toast.form === "all" ? "Merci pour votre participation !" : `Formulaire ${toast.form} enregistré !`}
+              {toast.form === "all" ? t.toastAllTitle : t.toastFormTitle(toast.form as number)}
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.72)", lineHeight: 1.5 }}>
               {toast.form === "all"
-                ? "Vos deux réponses ont été soumises anonymement."
-                : "Merci ! Pensez à remplir le deuxième formulaire."}
+                ? t.toastAllDesc
+                : t.toastFormDesc}
             </div>
           </div>
           <button
