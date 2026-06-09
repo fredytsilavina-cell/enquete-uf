@@ -35,14 +35,15 @@ function SectionCard({ children, style }: { children: React.ReactNode; style?: R
   return (
     <div style={{
       background: "#fff", border: "1px solid #e8edf2", borderRadius: 24,
-      padding: "28px 32px", boxShadow: "0 2px 16px rgba(13,27,42,0.05)", ...style,
-    }}>
+      padding: "20px 16px", boxShadow: "0 2px 16px rgba(13,27,42,0.05)", ...style,
+    }}
+    className="section-card"
+    >
       {children}
     </div>
   );
 }
 
-// Badge "temps réel connecté"
 function RealtimeBadge({ live }: { live: boolean }) {
   return (
     <div style={{
@@ -81,10 +82,8 @@ export default function AdminDashboardPage() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
-  // Garde les filtres actifs accessibles dans le callback realtime sans stale closure
   const filtersRef = useRef({ form: "", dateRange: "", search: "", page: 1 });
 
-  // ── Chargement stats ───────────────────────────────────────────────────
   const loadStats = useCallback(async () => {
     try {
       const res = await fetch("/api/stats");
@@ -96,7 +95,6 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // ── Chargement soumissions paginées ───────────────────────────────────
   const fetchPage = useCallback(async (
     pageNumber: number,
     options: { form?: string; dateRange?: string; search?: string } = {}
@@ -120,7 +118,6 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // ── Refresh complet (stats + table) ───────────────────────────────────
   const refreshAll = useCallback(async () => {
     setLastUpdate(new Date());
     await Promise.all([
@@ -133,9 +130,7 @@ export default function AdminDashboardPage() {
     ]);
   }, [loadStats, fetchPage]);
 
-  // ── Supabase Realtime ──────────────────────────────────────────────────
   useEffect(() => {
-    // Nettoyage canal existant
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
@@ -148,10 +143,7 @@ export default function AdminDashboardPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "submissions" },
-        () => {
-          // Nouvelle soumission, modification ou suppression → refresh immédiat
-          refreshAll();
-        }
+        () => { refreshAll(); }
       )
       .subscribe((status) => {
         setRealtimeLive(status === "SUBSCRIBED");
@@ -166,7 +158,6 @@ export default function AdminDashboardPage() {
     };
   }, [refreshAll]);
 
-  // ── Init ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
@@ -177,12 +168,10 @@ export default function AdminDashboardPage() {
     init();
   }, [router, refreshAll]);
 
-  // Synchronise filtersRef à chaque changement de filtre
   useEffect(() => {
     filtersRef.current = { form: selectedForm, dateRange, search: searchQuery, page };
   }, [selectedForm, dateRange, searchQuery, page]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     filtersRef.current.search = query;
@@ -255,7 +244,6 @@ export default function AdminDashboardPage() {
     {
       key: "payload", label: "Aperçu",
       render: (value: any) => {
-        // Build a readable preview from the first few meaningful payload fields
         let preview = "—";
         if (value && typeof value === "object") {
           const SKIP = new Set([
@@ -294,24 +282,25 @@ export default function AdminDashboardPage() {
   ];
 
   const filterBtnStyle = (active: boolean, activeColor?: string): React.CSSProperties => ({
-    padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600,
+    padding: "7px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600,
     border: "none", cursor: "pointer", transition: "all 0.18s",
     background: active ? (activeColor || "#0d1b2a") : "#fff",
     color: active ? "#fff" : "#7a9ab8",
     boxShadow: active ? "0 4px 12px rgba(13,27,42,0.15)" : "0 1px 4px rgba(13,27,42,0.06)",
     outline: active ? "none" : "1px solid #e8edf2",
+    whiteSpace: "nowrap",
   });
 
   return (
-    <main>
+    <main style={{ padding: "0 0 40px" }}>
       {/* Page header */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+      <div style={{ marginBottom: 24 }}>
+        <div className="dashboard-header">
           <div>
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#c9a84c", margin: "0 0 8px" }}>
               Tableau de bord
             </p>
-            <h1 style={{ fontSize: 30, fontWeight: 800, color: "#0d1b2a", margin: 0, lineHeight: 1.1 }}>
+            <h1 className="dashboard-title">
               Suivi des réponses
             </h1>
             <p style={{ marginTop: 8, fontSize: 14, color: "#7a9ab8", margin: "8px 0 0" }}>
@@ -319,7 +308,7 @@ export default function AdminDashboardPage() {
             </p>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, marginTop: 8 }}>
             <RealtimeBadge live={realtimeLive} />
             {lastUpdate && (
               <span style={{ fontSize: 11, color: "#b0bec5" }}>
@@ -330,8 +319,8 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+      {/* Stats Cards — responsive grid */}
+      <div className="stats-grid" style={{ marginBottom: 24 }}>
         <StatsCard label="Total reçu" value={stats.total} subtitle="soumissions enregistrées" color="navy" />
         <StatsCard label="Genre & Inclusion" value={stats.form1} subtitle="formulaire 1" color="green" />
         <StatsCard label="Vie des Étudiants" value={stats.form2} subtitle="formulaire 2" color="purple" />
@@ -339,20 +328,21 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Charts */}
-      <SectionCard style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+      <SectionCard style={{ marginBottom: 20 }}>
+        <div className="chart-header">
           <div>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: "#0d1b2a", margin: "0 0 4px" }}>Évolution des soumissions</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0d1b2a", margin: "0 0 4px" }}>Évolution des soumissions</h2>
             <p style={{ fontSize: 13, color: "#7a9ab8", margin: 0 }}>Tendance sur les 30 derniers jours</p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="filter-btn-group">
             <button onClick={() => handleFormFilter("")} style={filterBtnStyle(activeFilter === "")}>Tous</button>
             <button onClick={() => handleFormFilter("genre_inclusion")} style={filterBtnStyle(activeFilter === "genre_inclusion", "#15803d")}>Genre & Inclusion</button>
             <button onClick={() => handleFormFilter("vie_etudiants")} style={filterBtnStyle(activeFilter === "vie_etudiants", "#7c3aed")}>Vie des Étudiants</button>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.6fr", gap: 20 }}>
+        {/* Charts: stacked on mobile, side-by-side on desktop */}
+        <div className="chart-grid">
           <Chart
             data={trendData}
             type="line"
@@ -367,33 +357,33 @@ export default function AdminDashboardPage() {
             ]}
             type="pie"
             title=""
-            height={260}
+            height={220}
           />
         </div>
       </SectionCard>
 
       {/* Table */}
       <SectionCard>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 14 }}>
+        <div className="table-header">
           <div>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: "#0d1b2a", margin: "0 0 4px" }}>Dernières soumissions</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0d1b2a", margin: "0 0 4px" }}>Dernières soumissions</h2>
             <p style={{ fontSize: 13, color: "#7a9ab8", margin: 0 }}>
               {totalCount > 0 ? `${totalCount} entrée${totalCount > 1 ? "s" : ""} au total` : "Aucune donnée disponible"}
             </p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={exportCSV} style={{ padding: "8px 14px", borderRadius: 12, fontSize: 12, fontWeight: 600, border: "1px solid #e8edf2", background: "#f8fafc", color: "#3d5166", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <button onClick={exportCSV} style={{ padding: "8px 12px", borderRadius: 12, fontSize: 12, fontWeight: 600, border: "1px solid #e8edf2", background: "#f8fafc", color: "#3d5166", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               CSV
             </button>
-            <button onClick={exportXLSX} style={{ padding: "8px 14px", borderRadius: 12, fontSize: 12, fontWeight: 600, border: "1px solid rgba(201,168,76,0.4)", background: "rgba(201,168,76,0.08)", color: "#a8863e", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={exportXLSX} style={{ padding: "8px 12px", borderRadius: 12, fontSize: 12, fontWeight: 600, border: "1px solid rgba(201,168,76,0.4)", background: "rgba(201,168,76,0.08)", color: "#a8863e", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Excel (2 feuilles)
+              Excel
             </button>
           </div>
         </div>
 
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 16 }}>
           <SearchFilter
             onSearch={handleSearch}
             onFilterChange={handleFilterChange}
@@ -409,7 +399,7 @@ export default function AdminDashboardPage() {
           onSort={handleSort}
         />
 
-        <div style={{ marginTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <p style={{ fontSize: 13, color: "#7a9ab8", margin: 0 }}>
             {totalCount === 0 ? "Aucun résultat" : `Page ${page} / ${Math.max(1, Math.ceil(totalCount / 50))}`}
           </p>
@@ -434,8 +424,87 @@ export default function AdminDashboardPage() {
 
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* Dashboard header */
+        .dashboard-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .dashboard-title {
+          font-size: 26px;
+          font-weight: 800;
+          color: #0d1b2a;
+          margin: 0;
+          line-height: 1.1;
+        }
+
+        /* Stats grid: 4 cols → 2 cols on tablet → 2 cols on mobile */
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+        }
+
+        /* Chart area: side-by-side on desktop */
+        .chart-grid {
+          display: grid;
+          grid-template-columns: 1.4fr 0.6fr;
+          gap: 16px;
+          align-items: center;
+        }
+        .chart-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .filter-btn-group {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .section-card {
+          padding: 20px 16px !important;
+        }
+
+        /* Table header */
+        .table-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        /* ── Tablet (≤ 900px) ── */
         @media (max-width: 900px) {
-          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
+          .chart-grid { grid-template-columns: 1fr !important; }
+          .dashboard-title { font-size: 22px !important; }
+        }
+
+        /* ── Mobile (≤ 600px) ── */
+        @media (max-width: 600px) {
+          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
+          .chart-grid { grid-template-columns: 1fr !important; }
+          .dashboard-title { font-size: 20px !important; }
+          .section-card { padding: 14px 12px !important; border-radius: 16px !important; }
+          .chart-header { flex-direction: column; align-items: flex-start; }
+          .filter-btn-group { width: 100%; }
+          .table-header { flex-direction: column; }
+          .dashboard-header { flex-direction: column; }
+        }
+
+        /* ── Very small (≤ 380px) ── */
+        @media (max-width: 380px) {
+          .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 6px; }
+          .filter-btn-group button { font-size: 11px !important; padding: 6px 8px !important; }
         }
       `}</style>
     </main>
