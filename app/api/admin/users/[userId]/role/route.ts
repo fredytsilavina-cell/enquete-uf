@@ -9,12 +9,15 @@ async function requireAdmin(authHeader: string | null) {
 }
 
 // PATCH /api/admin/users/[userId]/role — changer le rôle d'un utilisateur
-export async function PATCH(req: NextRequest, { params }: { params: { userId: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
   try {
     const auth = await requireAdmin(req.headers.get('authorization'));
     if (!auth) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
 
-    const { userId } = params;
+    const { userId } = await params;
     const { role } = await req.json();
     const validRole = role === 'form1_only' ? 'form1_only' : 'admin';
 

@@ -9,22 +9,22 @@ async function requireAdmin(authHeader: string | null) {
 }
 
 // DELETE /api/admin/users/[userId] — supprimer un utilisateur
-export async function DELETE(req: NextRequest, { params }: { params: { userId: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
   try {
     const auth = await requireAdmin(req.headers.get('authorization'));
     if (!auth) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
 
-    const { userId } = params;
+    const { userId } = await params;
 
-    // Empêcher un admin de se supprimer lui-même
     if (auth.userId === userId) {
       return NextResponse.json({ error: 'Vous ne pouvez pas supprimer votre propre compte' }, { status: 400 });
     }
 
-    // Supprimer le rôle (CASCADE le ferait aussi, mais soyons explicites)
     await supabaseAdmin.from('user_roles').delete().eq('user_id', userId);
 
-    // Supprimer le compte auth
     const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
