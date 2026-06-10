@@ -8,7 +8,6 @@ async function requireAdmin(authHeader: string | null) {
   return auth;
 }
 
-// DELETE /api/admin/users/[userId] — supprimer un utilisateur
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ userId: string }> }

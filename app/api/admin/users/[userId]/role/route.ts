@@ -8,7 +8,6 @@ async function requireAdmin(authHeader: string | null) {
   return auth;
 }
 
-// PATCH /api/admin/users/[userId]/role — changer le rôle d'un utilisateur
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
