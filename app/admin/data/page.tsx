@@ -81,12 +81,21 @@ export default function AdminDataPage() {
   const [activeTab, setActiveTab] = useState<"all" | "genre_inclusion" | "vie_etudiants">("all");
   // Détail d'une ligne (modal)
   const [detailRow, setDetailRow] = useState<Submission | null>(null);
+  const [userRole, setUserRole] = useState<"admin" | "form1_only">("admin");
   const PAGE_SIZE = 20;
 
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) { router.replace("/admin/login"); return; }
+
+      // Charger le rôle
+      const userId = data.session.user.id;
+      const { data: roleRow } = await supabase
+        .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+      const role = (roleRow as any)?.role || "admin";
+      setUserRole(role as "admin" | "form1_only");
+
       await loadSubmissions({ page: 1 });
       setLoading(false);
     };
@@ -224,7 +233,7 @@ export default function AdminDataPage() {
         {[
           { label: "Total reçu", value: totalCount, sub: "toutes soumissions", color: "#0d1b2a", bg: "#f8fafc" },
           { label: "Formulaire 1", value: form1Count, sub: "Genre & Inclusion", color: "#15803d", bg: "#f0fdf4" },
-          { label: "Formulaire 2", value: form2Count, sub: "Vie estudiantine", color: "#7c3aed", bg: "#faf5ff" },
+          ...(userRole === "admin" ? [{ label: "Formulaire 2", value: form2Count, sub: "Vie estudiantine", color: "#7c3aed", bg: "#faf5ff" }] : []),
         ].map(c => (
           <div key={c.label} className="dp-card" style={{ background: c.bg }}>
             <div>
@@ -243,7 +252,7 @@ export default function AdminDataPage() {
           {([
             { key: "all", label: "Toutes" },
             { key: "genre_inclusion", label: "Genre & Inclusion" },
-            { key: "vie_etudiants", label: "Vie estudiantine" },
+            ...(userRole === "admin" ? [{ key: "vie_etudiants", label: "Vie estudiantine" }] : []),
           ] as const).map(tab => (
             <button key={tab.key}
               className={`dp-tab ${activeTab === tab.key ? "dp-tab--active" : ""}`}

@@ -71,6 +71,7 @@ export default function AdminDashboardPage() {
   const [trendData, setTrendData] = useState<TrendData[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<"admin" | "form1_only">("admin");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedForm, setSelectedForm] = useState("");
   const [dateRange, setDateRange] = useState("");
@@ -162,6 +163,10 @@ export default function AdminDashboardPage() {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) { router.replace("/admin/login"); return; }
+      const userId = data.session.user.id;
+      const { data: roleRow } = await supabase
+        .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+      setUserRole(((roleRow as any)?.role || "admin") as "admin" | "form1_only");
       await refreshAll();
       setLoading(false);
     };
@@ -323,7 +328,7 @@ export default function AdminDashboardPage() {
       <div className="stats-grid" style={{ marginBottom: 24 }}>
         <StatsCard label="Total reçu" value={stats.total} subtitle="soumissions enregistrées" color="navy" />
         <StatsCard label="Genre & Inclusion" value={stats.form1} subtitle="formulaire 1" color="green" />
-        <StatsCard label="Vie des Étudiants" value={stats.form2} subtitle="formulaire 2" color="purple" />
+        {userRole === "admin" && <StatsCard label="Vie des Étudiants" value={stats.form2} subtitle="formulaire 2" color="purple" />}
         <StatsCard label="Aujourd'hui" value={stats.today} subtitle="nouvelles réponses" color="orange" />
       </div>
 
@@ -337,7 +342,7 @@ export default function AdminDashboardPage() {
           <div className="filter-btn-group">
             <button onClick={() => handleFormFilter("")} style={filterBtnStyle(activeFilter === "")}>Tous</button>
             <button onClick={() => handleFormFilter("genre_inclusion")} style={filterBtnStyle(activeFilter === "genre_inclusion", "#15803d")}>Genre & Inclusion</button>
-            <button onClick={() => handleFormFilter("vie_etudiants")} style={filterBtnStyle(activeFilter === "vie_etudiants", "#7c3aed")}>Vie des Étudiants</button>
+            {userRole === "admin" && <button onClick={() => handleFormFilter("vie_etudiants")} style={filterBtnStyle(activeFilter === "vie_etudiants", "#7c3aed")}>Vie des Étudiants</button>}
           </div>
         </div>
 
@@ -348,12 +353,12 @@ export default function AdminDashboardPage() {
             type="line"
             title=""
             colors={["#0d1b2a", "#15803d", "#7c3aed"]}
-            dataKeys={activeFilter ? (activeFilter === "genre_inclusion" ? ["form1"] : ["form2"]) : ["total", "form1", "form2"]}
+            dataKeys={activeFilter ? (activeFilter === "genre_inclusion" ? ["form1"] : ["form2"]) : (userRole === "form1_only" ? ["total", "form1"] : ["total", "form1", "form2"])}
           />
           <Chart
             data={[
               { name: "Genre & Inclusion", value: stats.form1 },
-              { name: "Vie des Étudiants", value: stats.form2 },
+              ...(userRole === "admin" ? [{ name: "Vie des Étudiants", value: stats.form2 }] : []),
             ]}
             type="pie"
             title=""

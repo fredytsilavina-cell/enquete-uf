@@ -1,0 +1,31 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabaseServer';
+import { getRoleFromToken } from '@/lib/userRole';
+
+async function requireAdmin(authHeader: string | null) {
+  const auth = await getRoleFromToken(authHeader);
+  if (!auth || auth.role !== 'admin') return null;
+  return auth;
+}
+
+// PATCH /api/admin/users/[userId]/role — changer le rôle d'un utilisateur
+export async function PATCH(req: NextRequest, { params }: { params: { userId: string } }) {
+  try {
+    const auth = await requireAdmin(req.headers.get('authorization'));
+    if (!auth) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+
+    const { userId } = params;
+    const { role } = await req.json();
+    const validRole = role === 'form1_only' ? 'form1_only' : 'admin';
+
+    const { error } = await supabaseAdmin.from('user_roles').upsert(
+      { user_id: userId, role: validRole },
+      { onConflict: 'user_id' }
+    );
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    return NextResponse.json({ success: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}

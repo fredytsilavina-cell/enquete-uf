@@ -4,7 +4,8 @@ import { supabaseAdmin } from './supabaseServer';
 interface KoboConfig {
   url1: string;
   url2: string;
-  koboToken?: string;
+  koboToken?: string;  // Token du compte KoboToolbox du formulaire 1
+  koboToken2?: string; // Token du compte KoboToolbox du formulaire 2 (si différent)
 }
 
 interface KoboSubmission {
@@ -15,7 +16,7 @@ interface KoboSubmission {
 }
 
 function parseConfigRows(rows: any[]): KoboConfig {
-  const config: KoboConfig = { url1: '', url2: '', koboToken: '' };
+  const config: KoboConfig = { url1: '', url2: '', koboToken: '', koboToken2: '' };
   rows.forEach((row) => {
     if (!row || !row.id) return;
     // url_data1/url_data2 take priority for sync; fall back to url1/url2
@@ -24,6 +25,7 @@ function parseConfigRows(rows: any[]): KoboConfig {
     if (row.id === 'url1' && !config.url1) config.url1 = row.value || '';
     if (row.id === 'url2' && !config.url2) config.url2 = row.value || '';
     if (row.id === 'kobo_token') config.koboToken = row.value || '';
+    if (row.id === 'kobo_token2') config.koboToken2 = row.value || '';
   });
   return config;
 }
@@ -102,6 +104,10 @@ export async function getKoboConfig(): Promise<KoboConfig | null> {
     // Always fall back to env var for token if DB has empty value
     if (!config.koboToken) {
       config.koboToken = process.env.KOBO_TOKEN || '';
+    }
+    // token2 falls back to token1 if not set (same account)
+    if (!config.koboToken2) {
+      config.koboToken2 = process.env.KOBO_TOKEN2 || config.koboToken;
     }
 
     return config;
@@ -258,17 +264,21 @@ function extractFormId(item: any, fallback: 'genre_inclusion' | 'vie_etudiants')
 }
 
 // Synchroniser les données KoboToolbox avec Supabase
-export async function syncKoboData() {
+export async function syncKoboData({ onlyForm1 = false }: { onlyForm1?: boolean } = {}) {
   try {
     const config = await getKoboConfig();
     if (!config) return { success: false, message: 'Configuration manquante' };
 
     const token = config.koboToken || process.env.KOBO_TOKEN || '';
+    const token2 = config.koboToken2 || process.env.KOBO_TOKEN2 || token; // token2 = token si même compte
 
     // Diagnostics — URL manquante n'est PAS une erreur, juste une info
     const warnings: string[] = [];
     if (!token) {
-      warnings.push('Token KoboToolbox manquant — les formulaires prives echoueront (401).');
+      warnings.push('Token KoboToolbox (formulaire 1) manquant — les formulaires prives echoueront (401).');
+    }
+    if (!token2) {
+      warnings.push('Token KoboToolbox (formulaire 2) manquant — les formulaires prives echoueront (401).');
     }
     if (!config.url1 && !config.url2) {
       return { success: false, message: 'Aucune URL de synchronisation configuree. Ajoutez au moins une URL dans Parametres.' };
@@ -285,10 +295,12 @@ export async function syncKoboData() {
       console.log('[KoboService] Formulaire 1 ignore — URL non configuree.');
     }
 
-    if (config.url2) {
+    if (config.url2 && !onlyForm1) {
       console.log('[KoboService] Sync formulaire 2 (vie_etudiants)...');
-      const data = await fetchFromKoboAPI(config.url2, token);
+      const data = await fetchFromKoboAPI(config.url2, token2);
       synced.push({ formId: 'vie_etudiants', data });
+    } else if (onlyForm1) {
+      console.log('[KoboService] Formulaire 2 ignore — acces restreint au formulaire 1.');
     } else {
       console.log('[KoboService] Formulaire 2 ignore — URL non configuree.');
     }

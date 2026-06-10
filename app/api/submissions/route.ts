@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseServer';
+import { getRoleFromToken } from '@/lib/userRole';
 import * as XLSX from 'xlsx';
 import { exportKoboValue } from '@/lib/koboDecoder';
 
@@ -518,6 +519,11 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const params = url.searchParams;
 
+    // Vérification du rôle — restreint Form 2 pour form1_only
+    const authHeader = req.headers.get('authorization');
+    const auth = await getRoleFromToken(authHeader);
+    const restrictToForm1 = auth?.role === 'form1_only';
+
     const page = parseInt(params.get('page') || '1', 10);
     const pageSize = parseInt(params.get('pageSize') || '50', 10);
     const form = params.get('form') || undefined;
@@ -546,6 +552,14 @@ export async function GET(req: NextRequest) {
     }
 
     let all = allRows.map(normalizeSubmission);
+
+    // Restriction rôle : form1_only ne voit pas les données du formulaire 2
+    if (restrictToForm1) {
+      all = all.filter(r => {
+        const f = String(r.form || '').toLowerCase();
+        return f.includes('genre') || f === 'genre_inclusion';
+      });
+    }
 
     // Filtres
     if (search) {
@@ -593,12 +607,15 @@ export async function GET(req: NextRequest) {
       const ws1 = buildStyledSheet(form1, FORM1_LABELS, PRIORITY_KEYS_FORM1, 'Genre et Inclusion');
       XLSX.utils.book_append_sheet(wb, ws1, 'Genre et Inclusion');
 
-      const ws2 = buildStyledSheet(form2, FORM2_LABELS, PRIORITY_KEYS_FORM2, 'Vie des Etudiants');
-      XLSX.utils.book_append_sheet(wb, ws2, 'Vie des Etudiants');
+      // form1_only : pas de feuille Form2 ni Couplage
+      if (!restrictToForm1) {
+        const ws2 = buildStyledSheet(form2, FORM2_LABELS, PRIORITY_KEYS_FORM2, 'Vie des Etudiants');
+        XLSX.utils.book_append_sheet(wb, ws2, 'Vie des Etudiants');
 
-      // Feuille de couplage : uniquement les appareils ayant soumis les deux formulaires
-      const wsCoupling = buildCouplingSheet(form1, form2);
-      XLSX.utils.book_append_sheet(wb, wsCoupling, 'Couplage');
+        // Feuille de couplage : uniquement les appareils ayant soumis les deux formulaires
+        const wsCoupling = buildCouplingSheet(form1, form2);
+        XLSX.utils.book_append_sheet(wb, wsCoupling, 'Couplage');
+      }
 
       const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
       const today = new Date().toISOString().split('T')[0];

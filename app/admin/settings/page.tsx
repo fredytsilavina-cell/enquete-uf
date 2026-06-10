@@ -190,6 +190,223 @@ function FormSlot({
   );
 }
 
+// ── Gestion des utilisateurs (admin uniquement) ──────────────────────────────
+
+interface UserEntry {
+  id: string;
+  email: string;
+  role: "admin" | "form1_only";
+}
+
+function UserManagementSection({
+  saving, setSaving, flashMessage,
+}: {
+  saving: string | null;
+  setSaving: (v: string | null) => void;
+  flashMessage: (type: "success" | "error", text: string) => void;
+}) {
+  const [users, setUsers] = useState<UserEntry[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState<"admin" | "form1_only">("form1_only");
+  const [showNewPwd, setShowNewPwd] = useState(false);
+
+  async function loadUsers() {
+    setLoadingUsers(true);
+    const { data: session } = await supabase.auth.getSession();
+    const token = session?.session?.access_token;
+    const res = await fetch("/api/admin/users", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      setUsers(json.users || []);
+    }
+    setLoadingUsers(false);
+  }
+
+  useEffect(() => { loadUsers(); }, []);
+
+  async function handleCreateUser() {
+    if (!newEmail.trim() || !newPassword.trim()) {
+      flashMessage("error", "Email et mot de passe requis");
+      return;
+    }
+    if (newPassword.length < 6) {
+      flashMessage("error", "Mot de passe minimum 6 caractères");
+      return;
+    }
+    setSaving("create-user");
+    const { data: session } = await supabase.auth.getSession();
+    const token = session?.session?.access_token;
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ email: newEmail.trim(), password: newPassword, role: newRole }),
+    });
+    const json = await res.json();
+    setSaving(null);
+    if (!res.ok) {
+      flashMessage("error", json.error || "Erreur création");
+    } else {
+      flashMessage("success", `Compte ${newEmail} créé avec le rôle ${newRole === "form1_only" ? "Formulaire 1 seulement" : "Admin"}`);
+      setNewEmail("");
+      setNewPassword("");
+      setNewRole("form1_only");
+      loadUsers();
+    }
+  }
+
+  async function handleChangeRole(userId: string, role: "admin" | "form1_only") {
+    const { data: session } = await supabase.auth.getSession();
+    const token = session?.session?.access_token;
+    await fetch(`/api/admin/users/${userId}/role`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ role }),
+    });
+    loadUsers();
+  }
+
+  async function handleDeleteUser(userId: string, email: string) {
+    if (!confirm(`Supprimer le compte ${email} ?`)) return;
+    const { data: session } = await supabase.auth.getSession();
+    const token = session?.session?.access_token;
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      flashMessage("success", `Compte ${email} supprimé`);
+      loadUsers();
+    } else {
+      flashMessage("error", "Erreur suppression");
+    }
+  }
+
+  const roleLabel = (r: string) =>
+    r === "form1_only" ? "Formulaire 1 seulement" : "Admin complet";
+
+  const roleBadgeStyle = (r: string): React.CSSProperties => ({
+    display: "inline-block",
+    padding: "3px 10px",
+    borderRadius: 20,
+    fontSize: 11,
+    fontWeight: 700,
+    background: r === "form1_only" ? "#fef9c3" : "#dbeafe",
+    color: r === "form1_only" ? "#854d0e" : "#1d4ed8",
+  });
+
+  return (
+    <SettingsSection
+      icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+      title="Gestion des utilisateurs"
+      subtitle="Créez et gérez les accès admin — seuls les administrateurs voient cette section"
+      accent="#7c3aed"
+    >
+      {/* Liste des utilisateurs */}
+      {loadingUsers ? (
+        <div style={{ color: "#7a9ab8", fontSize: 13, padding: "8px 0" }}>Chargement…</div>
+      ) : (
+        <div style={{ marginBottom: 24 }}>
+          {users.length === 0 ? (
+            <div style={{ color: "#7a9ab8", fontSize: 13 }}>Aucun utilisateur trouvé.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {users.map(u => (
+                <div key={u.id} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 12, padding: "12px 16px", borderRadius: 12,
+                  border: "1px solid #e2e8ef", background: "#f8fafc", flexWrap: "wrap",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                      background: "#0d1b2a", color: "#fff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 12, fontWeight: 700,
+                    }}>
+                      {u.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#0d1b2a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.email}</div>
+                      <span style={roleBadgeStyle(u.role)}>{roleLabel(u.role)}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <select
+                      value={u.role}
+                      onChange={e => handleChangeRole(u.id, e.target.value as "admin" | "form1_only")}
+                      style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e2e8ef", fontSize: 12, color: "#0d1b2a", background: "#fff", cursor: "pointer" }}
+                    >
+                      <option value="admin">Admin complet</option>
+                      <option value="form1_only">Formulaire 1 seulement</option>
+                    </select>
+                    <button
+                      onClick={() => handleDeleteUser(u.id, u.email)}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #fecaca", background: "#fff5f5", color: "#dc2626", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Créer un nouveau compte */}
+      <div style={{ borderTop: "1px solid #f0f4f8", paddingTop: 20 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#3d5166", margin: "0 0 14px" }}>Créer un nouveau compte</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <Field label="Email">
+            <InputStyle type="email" value={newEmail} onChange={setNewEmail} placeholder="nom@exemple.com" />
+          </Field>
+          <Field label="Mot de passe">
+            <div style={{ position: "relative" }}>
+              <InputStyle type={showNewPwd ? "text" : "password"} value={newPassword} onChange={setNewPassword} placeholder="Min. 6 caractères" />
+              <button type="button" onClick={() => setShowNewPwd(!showNewPwd)}
+                style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#7a9ab8", fontSize: 12 }}>
+                {showNewPwd ? "Masquer" : "Afficher"}
+              </button>
+            </div>
+          </Field>
+        </div>
+        <Field label="Rôle">
+          <select
+            value={newRole}
+            onChange={e => setNewRole(e.target.value as "admin" | "form1_only")}
+            style={{ width: "100%", padding: "11px 14px", borderRadius: 12, border: "1px solid #e2e8ef", background: "#fff", color: "#0d1b2a", fontSize: 14, outline: "none" }}
+          >
+            <option value="form1_only">Formulaire 1 seulement (Genre & Inclusion) — ex : iiss_enquetes@gmail.com</option>
+            <option value="admin">Admin complet (accès aux deux formulaires)</option>
+          </select>
+        </Field>
+        <div style={{ marginTop: 16 }}>
+          <button
+            onClick={handleCreateUser}
+            disabled={saving === "create-user"}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "11px 22px", borderRadius: 12, fontSize: 13, fontWeight: 700, border: "none",
+              background: "linear-gradient(135deg, #5b21b6, #7c3aed)", color: "#fff",
+              cursor: saving === "create-user" ? "not-allowed" : "pointer",
+              opacity: saving === "create-user" ? 0.65 : 1,
+              boxShadow: "0 4px 14px rgba(124,58,237,0.25)",
+            }}
+          >
+            {saving === "create-user" ? (
+              <><span style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /> Création…</>
+            ) : "Créer le compte"}
+          </button>
+        </div>
+      </div>
+    </SettingsSection>
+  );
+}
+
 export default function AdminSettingsPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -208,7 +425,9 @@ export default function AdminSettingsPage() {
 
   // Kobo token
   const [koboToken, setKoboToken] = useState("");
+  const [koboToken2, setKoboToken2] = useState("");
   const [showToken, setShowToken] = useState(false);
+  const [showToken2, setShowToken2] = useState(false);
 
   // Mot de passe
   const [oldPassword, setOldPassword] = useState("");
@@ -217,6 +436,7 @@ export default function AdminSettingsPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<"admin" | "form1_only">("admin");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; desc?: string; action: () => void; danger?: boolean } | null>(null);
@@ -227,10 +447,17 @@ export default function AdminSettingsPage() {
       if (!data.session) { router.replace("/admin/login"); return; }
       setEmail(data.session.user.email || "");
 
+      // Charger le rôle de l'utilisateur
+      const userId = data.session.user.id;
+      const { data: roleRow } = await supabase
+        .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+      const role = (roleRow as any)?.role || "admin";
+      setUserRole(role as "admin" | "form1_only");
+
       // Charge config
       const { data: configRows } = await supabase
         .from("config").select("id,value")
-        .in("id", ["url1", "url2", "url_data1", "url_data2", "kobo_token", "title1", "title2"]);
+        .in("id", ["url1", "url2", "url_data1", "url_data2", "kobo_token", "kobo_token2", "title1", "title2"]);
 
       if (Array.isArray(configRows)) {
         setUrl1(configRows.find((r: any) => r.id === "url1")?.value ?? "");
@@ -238,6 +465,7 @@ export default function AdminSettingsPage() {
         setUrlData1(configRows.find((r: any) => r.id === "url_data1")?.value ?? "");
         setUrlData2(configRows.find((r: any) => r.id === "url_data2")?.value ?? "");
         setKoboToken(configRows.find((r: any) => r.id === "kobo_token")?.value ?? "");
+        setKoboToken2(configRows.find((r: any) => r.id === "kobo_token2")?.value ?? "");
         setTitle1(configRows.find((r: any) => r.id === "title1")?.value ?? "Genre & Inclusion");
         setTitle2(configRows.find((r: any) => r.id === "title2")?.value ?? "Vie des Etudiants");
       }
@@ -284,6 +512,7 @@ export default function AdminSettingsPage() {
       { id: "url_data2", value: urlData2.trim() },
     ];
     if (koboToken.trim()) configRows.push({ id: "kobo_token", value: koboToken.trim() });
+    if (koboToken2.trim()) configRows.push({ id: "kobo_token2", value: koboToken2.trim() });
 
     const { error: configError } = await supabase.from("config").upsert(configRows, { onConflict: "id" });
     if (configError) { flashMessage("error", `Erreur config : ${configError.message}`); setSaving(null); return; }
@@ -423,27 +652,47 @@ export default function AdminSettingsPage() {
               onClear={() => showConfirmDialog("Vider le formulaire 1 ?", () => handleClearForm(1), "Le formulaire 1 sera masqué sur la page publique.", true)}
               saving={saving === "forms"}
             />
-            <FormSlot
+            {/* Formulaire 2 visible uniquement pour admin */}
+            {userRole === "admin" && (
+              <FormSlot
               number={2} formShort="f2"
               title={title2} enketoUrl={url2} dataUrl={urlData2} xformId={xformId2}
               onChangeTitle={setTitle2} onChangeEnketo={setUrl2} onChangeData={setUrlData2}
               onClear={() => showConfirmDialog("Vider le formulaire 2 ?", () => handleClearForm(2), "Le formulaire 2 sera masqué sur la page publique.", true)}
               saving={saving === "forms"}
             />
+            )}
           </div>
 
-          {/* Token KoboToolbox ici aussi */}
-          <Field label="Token API KoboToolbox" hint="kf.kobotoolbox.org → Profil → Clé API">
-            <div style={{ position: "relative" }}>
-              <InputStyle type={showToken ? "text" : "password"} value={koboToken} onChange={setKoboToken} placeholder="Token de votre compte KoboToolbox" />
-              <button
-                type="button" onClick={() => setShowToken(!showToken)}
-                style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#7a9ab8", fontSize: 12 }}
-              >
-                {showToken ? "Masquer" : "Afficher"}
-              </button>
-            </div>
-          </Field>
+          {/* Tokens KoboToolbox */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Field label="Token API KoboToolbox — Formulaire 1" hint="Compte KoboToolbox hébergeant le formulaire 1 (Genre & Inclusion)">
+              <div style={{ position: "relative" }}>
+                <InputStyle type={showToken ? "text" : "password"} value={koboToken} onChange={setKoboToken} placeholder="Token du compte KoboToolbox (formulaire 1)" />
+                <button
+                  type="button" onClick={() => setShowToken(!showToken)}
+                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#7a9ab8", fontSize: 12 }}
+                >
+                  {showToken ? "Masquer" : "Afficher"}
+                </button>
+              </div>
+            </Field>
+
+            {/* Token 2 visible uniquement pour admin */}
+            {userRole === "admin" && (
+              <Field label="Token API KoboToolbox — Formulaire 2" hint="Compte KoboToolbox hébergeant le formulaire 2 (Vie des Etudiants) — laisser vide si même compte">
+              <div style={{ position: "relative" }}>
+                <InputStyle type={showToken2 ? "text" : "password"} value={koboToken2} onChange={setKoboToken2} placeholder="Token du compte KoboToolbox (formulaire 2)" />
+                <button
+                  type="button" onClick={() => setShowToken2(!showToken2)}
+                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#7a9ab8", fontSize: 12 }}
+                >
+                  {showToken2 ? "Masquer" : "Afficher"}
+                </button>
+              </div>
+            </Field>
+            )}
+          </div>
 
           <div style={{ marginTop: 20 }}>
             <PrimaryBtn
@@ -458,6 +707,11 @@ export default function AdminSettingsPage() {
             />
           </div>
         </SettingsSection>
+
+        {/* ── Section : Gestion des utilisateurs (admin uniquement) ── */}
+        {userRole === "admin" && (
+          <UserManagementSection saving={saving} setSaving={setSaving} flashMessage={flashMessage} />
+        )}
 
         {/* ── Section : Compte ── */}
         <SettingsSection
