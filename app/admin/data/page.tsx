@@ -256,7 +256,8 @@ export default function AdminDataPage() {
           ] as const).map(tab => (
             <button key={tab.key}
               className={`dp-tab ${activeTab === tab.key ? "dp-tab--active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}>
+              // ✅ Après
+              onClick={() => setActiveTab(tab.key as "genre_inclusion" | "vie_etudiants" | "all")}>
               {tab.label}
             </button>
           ))}
