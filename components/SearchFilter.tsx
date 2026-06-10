@@ -6,13 +6,11 @@ interface SearchFilterProps {
   onSearch: (query: string) => void;
   onFilterChange: (filters: { form?: string; dateRange?: string }) => void;
   placeholder?: string;
+  /** Si fourni, restreint les options de formulaire visibles */
+  allowedForms?: string[]; // ex: ["genre_inclusion"] pour form1_only
+  /** Labels dynamiques des formulaires (depuis config Supabase) */
+  formLabels?: { form1?: string; form2?: string };
 }
-
-const formOptions = [
-  { value: "", label: "Tous les formulaires" },
-  { value: "genre_inclusion", label: "Genre & Inclusion" },
-  { value: "vie_etudiants", label: "Vie des Étudiants" },
-];
 
 const dateOptions = [
   { value: "", label: "Toutes les dates" },
@@ -22,7 +20,7 @@ const dateOptions = [
   { value: "3months", label: "3 derniers mois" },
 ];
 
-export function SearchFilter({ onSearch, onFilterChange, placeholder }: SearchFilterProps) {
+export function SearchFilter({ onSearch, onFilterChange, placeholder, allowedForms, formLabels }: SearchFilterProps) {
   const [query, setQuery] = useState("");
   const [selectedForm, setSelectedForm] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -31,6 +29,30 @@ export function SearchFilter({ onSearch, onFilterChange, placeholder }: SearchFi
   const formRef = useRef<HTMLDivElement>(null);
   const dateRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Labels dynamiques avec fallback
+  const label1 = formLabels?.form1 || "Genre & Inclusion";
+  const label2 = formLabels?.form2 || "Vie des Étudiants";
+
+  const ALL_FORM_OPTIONS = [
+    { value: "", label: "Tous les formulaires" },
+    { value: "genre_inclusion", label: label1 },
+    { value: "vie_etudiants", label: label2 },
+  ];
+
+  // Si allowedForms est fourni, on filtre les options :
+  // - on retire "Tous les formulaires" si une seule option est disponible
+  // - on ne garde que les formulaires autorisés
+  const formOptions = allowedForms
+    ? ALL_FORM_OPTIONS.filter(o => o.value === "" ? allowedForms.length > 1 : allowedForms.includes(o.value))
+    : ALL_FORM_OPTIONS;
+
+  // Si l'utilisateur n'a accès qu'à un seul formulaire, on pré-sélectionne et on cache le dropdown
+  const isSingleForm = allowedForms && allowedForms.length === 1;
+  const singleFormValue = isSingleForm ? allowedForms[0] : null;
+  const singleFormLabel = singleFormValue
+    ? ALL_FORM_OPTIONS.find(o => o.value === singleFormValue)?.label || singleFormValue
+    : null;
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -56,7 +78,7 @@ export function SearchFilter({ onSearch, onFilterChange, placeholder }: SearchFi
   const handleDateSelect = (value: string) => {
     setSelectedDate(value);
     setDateOpen(false);
-    onFilterChange({ form: selectedForm, dateRange: value });
+    onFilterChange({ form: isSingleForm ? (singleFormValue ?? "") : selectedForm, dateRange: value });
   };
 
   const clearAll = () => {
@@ -64,10 +86,11 @@ export function SearchFilter({ onSearch, onFilterChange, placeholder }: SearchFi
     setSelectedForm("");
     setSelectedDate("");
     onSearch("");
-    onFilterChange({ form: "", dateRange: "" });
+    onFilterChange({ form: isSingleForm ? (singleFormValue ?? "") : "", dateRange: "" });
   };
 
-  const hasFilters = query || selectedForm || selectedDate;
+  const hasFilters = query || (!isSingleForm && selectedForm) || selectedDate;
+  const activeFormValue = isSingleForm ? singleFormValue! : selectedForm;
 
   return (
     <div className="sf-root">
@@ -97,39 +120,50 @@ export function SearchFilter({ onSearch, onFilterChange, placeholder }: SearchFi
       {/* Filters row */}
       <div className="sf-filters-row">
         {/* Form filter */}
-        <div className="sf-dropdown-wrap" ref={formRef}>
-          <button
-            className={`sf-filter-btn ${selectedForm ? "sf-filter-btn--active" : ""}`}
-            onClick={() => { setFormOpen(!formOpen); setDateOpen(false); }}
-          >
-            <span className="sf-filter-dot" style={{ background: selectedForm === "genre_inclusion" ? "#15803d" : selectedForm === "vie_etudiants" ? "#7c3aed" : "#c8d4df" }} />
-            <span>{formOptions.find(o => o.value === selectedForm)?.label || "Formulaire"}</span>
-            <svg className={`sf-chevron ${formOpen ? "sf-chevron--open" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
+        {isSingleForm ? (
+          /* Rôle form1_only : badge fixe non cliquable */
+          <div className="sf-filter-btn sf-filter-btn--active sf-filter-btn--locked">
+            <span className="sf-filter-dot" style={{ background: singleFormValue === "genre_inclusion" ? "#15803d" : "#7c3aed" }} />
+            <span>{singleFormLabel}</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
-          </button>
-          {formOpen && (
-            <div className="sf-dropdown">
-              {formOptions.map(opt => (
-                <button
-                  key={opt.value}
-                  className={`sf-dropdown-item ${selectedForm === opt.value ? "sf-dropdown-item--active" : ""}`}
-                  onClick={() => handleFormSelect(opt.value)}
-                >
-                  {opt.value && (
-                    <span className="sf-dropdown-dot" style={{ background: opt.value === "genre_inclusion" ? "#15803d" : "#7c3aed" }} />
-                  )}
-                  {opt.label}
-                  {selectedForm === opt.value && (
-                    <svg style={{ marginLeft: "auto" }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="2.5" strokeLinecap="round">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="sf-dropdown-wrap" ref={formRef}>
+            <button
+              className={`sf-filter-btn ${activeFormValue ? "sf-filter-btn--active" : ""}`}
+              onClick={() => { setFormOpen(!formOpen); setDateOpen(false); }}
+            >
+              <span className="sf-filter-dot" style={{ background: activeFormValue === "genre_inclusion" ? "#15803d" : activeFormValue === "vie_etudiants" ? "#7c3aed" : "#c8d4df" }} />
+              <span>{formOptions.find(o => o.value === activeFormValue)?.label || "Formulaire"}</span>
+              <svg className={`sf-chevron ${formOpen ? "sf-chevron--open" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {formOpen && (
+              <div className="sf-dropdown">
+                {formOptions.map(opt => (
+                  <button
+                    key={opt.value}
+                    className={`sf-dropdown-item ${activeFormValue === opt.value ? "sf-dropdown-item--active" : ""}`}
+                    onClick={() => handleFormSelect(opt.value)}
+                  >
+                    {opt.value && (
+                      <span className="sf-dropdown-dot" style={{ background: opt.value === "genre_inclusion" ? "#15803d" : "#7c3aed" }} />
+                    )}
+                    {opt.label}
+                    {activeFormValue === opt.value && (
+                      <svg style={{ marginLeft: "auto" }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="2.5" strokeLinecap="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Date filter */}
         <div className="sf-dropdown-wrap" ref={dateRef}>
@@ -258,7 +292,7 @@ export function SearchFilter({ onSearch, onFilterChange, placeholder }: SearchFi
           white-space: nowrap;
           font-family: inherit;
         }
-        .sf-filter-btn:hover {
+        .sf-filter-btn:hover:not(.sf-filter-btn--locked) {
           border-color: #c9a84c;
           background: rgba(201,168,76,0.06);
           color: #0d1b2a;
@@ -268,6 +302,11 @@ export function SearchFilter({ onSearch, onFilterChange, placeholder }: SearchFi
           background: rgba(201,168,76,0.1);
           color: #0d1b2a;
           font-weight: 600;
+        }
+        /* Badge verrouillé (form1_only) : non cliquable, apparence distincte */
+        .sf-filter-btn--locked {
+          cursor: default;
+          opacity: 0.85;
         }
         .sf-filter-dot {
           width: 8px;

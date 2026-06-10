@@ -81,7 +81,9 @@ export default function AdminDataPage() {
   const [activeTab, setActiveTab] = useState<"all" | "genre_inclusion" | "vie_etudiants">("all");
   // Détail d'une ligne (modal)
   const [detailRow, setDetailRow] = useState<Submission | null>(null);
-  const [userRole, setUserRole] = useState<"admin" | "form1_only">("admin");
+  const [userRole, setUserRole] = useState<"admin" | "form1_only" | null>(null);
+  // Labels dynamiques depuis config Supabase
+  const [formLabels, setFormLabels] = useState<{ form1: string; form2: string }>({ form1: "Genre & Inclusion", form2: "Vie estudiantine" });
   // Formulaires présents dans les données chargées
   const [availableForms, setAvailableForms] = useState<Set<string>>(new Set());
   const PAGE_SIZE = 20;
@@ -98,7 +100,19 @@ export default function AdminDataPage() {
       const role = (roleRow as any)?.role || "admin";
       setUserRole(role as "admin" | "form1_only");
 
-      await loadSubmissions({ page: 1 });
+      // Charger les titres dynamiques depuis config
+      const { data: configRows } = await supabase
+        .from("config").select("key, value").in("key", ["title1", "title2"]);
+      const cfgMap = Object.fromEntries((configRows || []).map((r: any) => [r.key, r.value]));
+      setFormLabels({
+        form1: cfgMap["title1"] || "Genre & Inclusion",
+        form2: cfgMap["title2"] || "Vie estudiantine",
+      });
+
+      // form1_only : forcer le filtre sur le formulaire 1 dès le départ
+      const initialForm = role === "form1_only" ? "genre_inclusion" : "";
+      if (initialForm) setSelectedForm(initialForm);
+      await loadSubmissions({ page: 1, form: initialForm });
       setLoading(false);
     };
     init();
@@ -201,9 +215,11 @@ export default function AdminDataPage() {
   }
 
   function handleFilterChange(f: { form?: string; dateRange?: string }) {
-    setSelectedForm(f.form || "");
+    // form1_only : le formulaire est verrouillé sur genre_inclusion, on ignore tout changement
+    const effectiveForm = userRole === "form1_only" ? "genre_inclusion" : (f.form || "");
+    setSelectedForm(effectiveForm);
     setDateRange(f.dateRange || "");
-    loadSubmissions({ page: 1, form: f.form, dateRange: f.dateRange, search: searchQuery });
+    loadSubmissions({ page: 1, form: effectiveForm, dateRange: f.dateRange, search: searchQuery });
   }
 
   // ── Rendu ────────────────────────────────────────────────────────────────
@@ -243,8 +259,8 @@ export default function AdminDataPage() {
       <div className="dp-cards">
         {[
           { label: "Total reçu", value: totalCount, sub: "toutes soumissions", color: "#0d1b2a", bg: "#f8fafc" },
-          { label: "Formulaire 1", value: form1Count, sub: "Genre & Inclusion", color: "#15803d", bg: "#f0fdf4" },
-          ...(userRole === "admin" ? [{ label: "Formulaire 2", value: form2Count, sub: "Vie estudiantine", color: "#7c3aed", bg: "#faf5ff" }] : []),
+          { label: "Formulaire 1", value: form1Count, sub: formLabels.form1, color: "#15803d", bg: "#f0fdf4" },
+          ...(userRole === "admin" ? [{ label: "Formulaire 2", value: form2Count, sub: formLabels.form2, color: "#7c3aed", bg: "#faf5ff" }] : []),
         ].map(c => (
           <div key={c.label} className="dp-card" style={{ background: c.bg }}>
             <div>
@@ -265,8 +281,8 @@ export default function AdminDataPage() {
             const hasVie   = availableForms.has("vie_etudiants") && userRole === "admin";
             const tabs: { key: "all" | "genre_inclusion" | "vie_etudiants"; label: string }[] = [];
             if (hasGenre && hasVie) tabs.push({ key: "all", label: "Toutes" });
-            if (hasGenre) tabs.push({ key: "genre_inclusion", label: "Genre & Inclusion" });
-            if (hasVie)   tabs.push({ key: "vie_etudiants",   label: "Vie estudiantine" });
+            if (hasGenre) tabs.push({ key: "genre_inclusion", label: formLabels.form1 });
+            if (hasVie)   tabs.push({ key: "vie_etudiants",   label: formLabels.form2 });
             if (tabs.length === 0) tabs.push({ key: "all", label: "Toutes" });
             return tabs;
           })().map(tab => (
@@ -281,13 +297,17 @@ export default function AdminDataPage() {
           </div>
         </div>
 
-        {/* Recherche */}
+        {/* Recherche — rendu seulement après chargement du rôle pour éviter le flash des options admin */}
         <div className="dp-search-wrap">
-          <SearchFilter
-            onSearch={handleSearch}
-            onFilterChange={handleFilterChange}
-            placeholder="Rechercher dans les réponses…"
-          />
+          {userRole !== null && (
+            <SearchFilter
+              onSearch={handleSearch}
+              onFilterChange={handleFilterChange}
+              placeholder="Rechercher dans les réponses…"
+              allowedForms={userRole === "form1_only" ? ["genre_inclusion"] : undefined}
+              formLabels={formLabels}
+            />
+          )}
         </div>
 
         {/* Tableau dynamique */}
@@ -324,7 +344,7 @@ export default function AdminDataPage() {
                   <tr key={row.id} className={`dp-tr ${i % 2 === 0 ? "dp-tr--even" : ""}`}>
                     {/* Formulaire badge */}
                     <td className="dp-td">
-                      <FormBadge form={row.form} />
+                      <FormBadge form={row.form} labels={formLabels} />
                     </td>
                     {/* Date */}
                     <td className="dp-td dp-td-date">
@@ -379,7 +399,7 @@ export default function AdminDataPage() {
 
       {/* Modal détail */}
       {detailRow && (
-        <DetailModal row={detailRow} onClose={() => setDetailRow(null)} />
+        <DetailModal row={detailRow} onClose={() => setDetailRow(null)} labels={formLabels} />
       )}
 
       <style>{STYLES}</style>
@@ -389,11 +409,13 @@ export default function AdminDataPage() {
 
 // ── Sous-composants ────────────────────────────────────────────────────────
 
-function FormBadge({ form }: { form: string }) {
+function FormBadge({ form, labels }: { form: string; labels?: { form1: string; form2: string } }) {
   const isGenre = String(form).includes("genre");
+  const lbl1 = labels?.form1 || "Genre & Inclusion";
+  const lbl2 = labels?.form2 || "Vie estudiantine";
   // Label dynamique : on affiche le form_id nettoyé si inconnu
-  const label = isGenre ? "Genre & Inclusion"
-    : String(form).includes("vie") ? "Vie estudiantine"
+  const label = isGenre ? lbl1
+    : String(form).includes("vie") ? lbl2
     : form || "—";
   return (
     <span style={{
@@ -405,7 +427,7 @@ function FormBadge({ form }: { form: string }) {
   );
 }
 
-function DetailModal({ row, onClose }: { row: Submission; onClose: () => void }) {
+function DetailModal({ row, onClose, labels }: { row: Submission; onClose: () => void; labels?: { form1: string; form2: string } }) {
   const entries = Object.entries(row.payload || {})
     .filter(([k]) => !["formhub/uuid", "meta/instanceID", "meta/rootUuid",
       "_attachments", "_geolocation", "_tags", "_notes", "_validation_status"].includes(k));
@@ -415,7 +437,7 @@ function DetailModal({ row, onClose }: { row: Submission; onClose: () => void })
       <div className="dp-modal" onClick={e => e.stopPropagation()}>
         <div className="dp-modal-head">
           <div>
-            <FormBadge form={row.form} />
+            <FormBadge form={row.form} labels={labels} />
             <p style={{ margin: "6px 0 0", fontSize: 12, color: "#7a9ab8" }}>
               {row.created_at ? new Date(row.created_at).toLocaleString("fr-FR") : ""}
             </p>
