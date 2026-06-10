@@ -82,6 +82,8 @@ export default function AdminDataPage() {
   // Détail d'une ligne (modal)
   const [detailRow, setDetailRow] = useState<Submission | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "form1_only">("admin");
+  // Formulaires présents dans les données chargées
+  const [availableForms, setAvailableForms] = useState<Set<string>>(new Set());
   const PAGE_SIZE = 20;
 
   useEffect(() => {
@@ -113,10 +115,19 @@ export default function AdminDataPage() {
     try {
       const res = await fetch(`/api/submissions?${qs.toString()}`);
       const json = await res.json();
-      setSubmissions(json.data || []);
+      const data: Submission[] = json.data || [];
+      setSubmissions(data);
       setTotalCount(json.count || 0);
       setCurrentPage(options.page);
       setError(null);
+      // Détecter les formulaires présents
+      const forms = new Set<string>();
+      for (const s of data) {
+        const f = String(s.form || "").toLowerCase();
+        if (f.includes("genre")) forms.add("genre_inclusion");
+        if (f.includes("vie") || f.includes("etudiant")) forms.add("vie_etudiants");
+      }
+      setAvailableForms(forms);
     } catch {
       setError("Impossible de charger les données.");
     } finally {
@@ -247,17 +258,21 @@ export default function AdminDataPage() {
 
       {/* Tableau */}
       <div className="dp-table-card">
-        {/* Onglets formulaire */}
+        {/* Onglets formulaire — "Toutes" seulement si 2 formulaires présents */}
         <div className="dp-tabs">
-          {([
-            { key: "all", label: "Toutes" },
-            { key: "genre_inclusion", label: "Genre & Inclusion" },
-            ...(userRole === "admin" ? [{ key: "vie_etudiants", label: "Vie estudiantine" }] : []),
-          ] as const).map(tab => (
+          {((): { key: "all" | "genre_inclusion" | "vie_etudiants"; label: string }[] => {
+            const hasGenre = availableForms.has("genre_inclusion");
+            const hasVie   = availableForms.has("vie_etudiants") && userRole === "admin";
+            const tabs: { key: "all" | "genre_inclusion" | "vie_etudiants"; label: string }[] = [];
+            if (hasGenre && hasVie) tabs.push({ key: "all", label: "Toutes" });
+            if (hasGenre) tabs.push({ key: "genre_inclusion", label: "Genre & Inclusion" });
+            if (hasVie)   tabs.push({ key: "vie_etudiants",   label: "Vie estudiantine" });
+            if (tabs.length === 0) tabs.push({ key: "all", label: "Toutes" });
+            return tabs;
+          })().map(tab => (
             <button key={tab.key}
               className={`dp-tab ${activeTab === tab.key ? "dp-tab--active" : ""}`}
-              // ✅ Après
-              onClick={() => setActiveTab(tab.key as "genre_inclusion" | "vie_etudiants" | "all")}>
+              onClick={() => setActiveTab(tab.key)}>
               {tab.label}
             </button>
           ))}

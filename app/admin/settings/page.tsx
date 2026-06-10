@@ -211,11 +211,15 @@ function UserManagementSection({
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<"admin" | "form1_only">("form1_only");
   const [showNewPwd, setShowNewPwd] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState("");
+
+  const SUPER_ADMIN_EMAIL = "tsilavinajeanfredy@gmail.com";
 
   async function loadUsers() {
     setLoadingUsers(true);
     const { data: session } = await supabase.auth.getSession();
     const token = session?.session?.access_token;
+    setCurrentEmail(session?.session?.user?.email || "");
     const res = await fetch("/api/admin/users", {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -335,20 +339,28 @@ function UserManagementSection({
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <select
-                      value={u.role}
-                      onChange={e => handleChangeRole(u.id, e.target.value as "admin" | "form1_only")}
-                      style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e2e8ef", fontSize: 12, color: "#0d1b2a", background: "#fff", cursor: "pointer" }}
-                    >
-                      <option value="admin">Admin complet</option>
-                      <option value="form1_only">Formulaire 1 seulement</option>
-                    </select>
-                    <button
-                      onClick={() => handleDeleteUser(u.id, u.email)}
-                      style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #fecaca", background: "#fff5f5", color: "#dc2626", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                    >
-                      Supprimer
-                    </button>
+                    {u.email === SUPER_ADMIN_EMAIL && currentEmail !== SUPER_ADMIN_EMAIL ? (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 8, background: "#fef9c3", color: "#854d0e", border: "1px solid #fde68a" }}>
+                        🔒 Compte protégé
+                      </span>
+                    ) : (
+                      <>
+                        <select
+                          value={u.role}
+                          onChange={e => handleChangeRole(u.id, e.target.value as "admin" | "form1_only")}
+                          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e2e8ef", fontSize: 12, color: "#0d1b2a", background: "#fff", cursor: "pointer" }}
+                        >
+                          <option value="admin">Admin complet</option>
+                          <option value="form1_only">Formulaire 1 seulement</option>
+                        </select>
+                        <button
+                          onClick={() => handleDeleteUser(u.id, u.email)}
+                          style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #fecaca", background: "#fff5f5", color: "#dc2626", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                        >
+                          Supprimer
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

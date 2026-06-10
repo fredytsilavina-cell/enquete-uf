@@ -18,6 +18,13 @@ export async function PATCH(
 
     const { userId } = await params;
     const { role } = await req.json();
+
+    // Protection super-admin : son rôle ne peut pas être modifié
+    const { data: targetUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+    if (targetUser?.user?.email === 'tsilavinajeanfredy@gmail.com') {
+      return NextResponse.json({ error: 'Le rôle de ce compte ne peut pas être modifié' }, { status: 403 });
+    }
+
     const validRole = role === 'form1_only' ? 'form1_only' : 'admin';
 
     const { error } = await supabaseAdmin.from('user_roles').upsert(
