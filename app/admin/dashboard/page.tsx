@@ -261,15 +261,25 @@ export default function AdminDashboardPage() {
       render: (value: any) => {
         let preview = "—";
         if (value && typeof value === "object") {
-          const SKIP = new Set([
-            "formhub/uuid","meta/instanceID","meta/rootUuid","_attachments",
-            "_geolocation","_tags","_notes","_validation_status","_status",
-            "__version__","_xform_id_string","_uuid","instanceID","device_fp",
-            "start","end","_id",
-          ]);
           const entries = Object.entries(value)
-            .filter(([k]) => !SKIP.has(k))
-            .slice(0, 3)
+            .filter(([k]) => {
+              if (k.startsWith("_")) return false;
+              if (/^group_[a-z0-9]+(_count)?$/i.test(k)) return false;
+              const SKIP = new Set([
+                "formhub/uuid","meta/instanceID","meta/rootUuid","_attachments",
+                "_geolocation","_tags","_notes","_validation_status","_status",
+                "__version__","_xform_id_string","_uuid","instanceID","device_fp",
+                "start","end","submitted_by","_submitted_by",
+              ]);
+              return !SKIP.has(k);
+            })
+            .filter(([, v]) => {
+              // Exclure les valeurs JSON brutes (objets/tableaux d'objets)
+              if (typeof v === "object" && v !== null) return false;
+              const s = String(v ?? "").trim();
+              return s !== "" && s !== "—";
+            })
+            .slice(0, 4)
             .map(([, v]) => displayKoboValue(v))
             .filter(Boolean);
           if (entries.length > 0) preview = entries.join(" · ");

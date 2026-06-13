@@ -22,7 +22,20 @@ const HIDDEN_KEYS = new Set([
   "_attachments", "_geolocation", "_tags", "_notes",
   "_validation_status", "_status", "__version__",
   "_xform_id_string", "_uuid", "instanceID",
+  "submitted_by", "_submitted_by",
 ]);
+
+// Clés à masquer dynamiquement (groupes Kobo, champs techniques)
+function isHiddenDynamic(key: string): boolean {
+  if (HIDDEN_KEYS.has(key)) return true;
+  // Groupes répétés KoboToolbox (ex: group_tk6fl80, group_xj12b13)
+  if (/^group_[a-z0-9]+$/i.test(key)) return true;
+  // Compteurs de groupes (ex: group_tk6fl80_count)
+  if (/^group_[a-z0-9]+_count$/i.test(key)) return true;
+  // Champs techniques Kobo supplémentaires
+  if (key.startsWith("_")) return true;
+  return false;
+}
 
 const PRIORITY_KEYS = ["_id", "_submission_time", "start", "end", "device_fp"];
 
@@ -67,7 +80,7 @@ function collectKeys(submissions: Submission[]): string[] {
   const seen = new Set<string>();
   for (const s of submissions) {
     for (const k of Object.keys(s.payload || {})) {
-      if (!HIDDEN_KEYS.has(k)) seen.add(k);
+      if (!isHiddenDynamic(k)) seen.add(k);
     }
   }
   const priority = PRIORITY_KEYS.filter(k => seen.has(k));
@@ -585,7 +598,7 @@ const STYLES = `
   .dp-table-scroll { overflow-x:auto; border-radius:12px; border:1px solid #e8edf2; }
   .dp-table { width:100%; border-collapse:collapse; font-size:13px; }
 
-  .dp-th { padding:11px 14px; text-align:left; font-size:11px; font-weight:700; color:#fff; background:#1e3a5f; white-space:normal; word-break:break-word; border-right:1px solid rgba(255,255,255,.08); position:sticky; top:0; z-index:1; max-width:200px; min-width:120px; line-height:1.35; }
+  .dp-th { padding:11px 14px; text-align:left; font-size:11px; font-weight:700; color:#fff; background:#1e3a5f; white-space:nowrap; border-right:1px solid rgba(255,255,255,.08); position:sticky; top:0; z-index:1; }
   .dp-th:first-child { border-radius:12px 0 0 0; }
   .dp-th:last-child { border-right:none; border-radius:0 12px 0 0; }
   .dp-th-form { min-width:140px; }
@@ -596,12 +609,12 @@ const STYLES = `
   .dp-tr--even { background:#f7fafd; }
   .dp-tr:hover { background:#eef4fb !important; }
 
-  .dp-td { padding:10px 14px; border-bottom:1px solid #edf1f6; vertical-align:top; border-right:1px solid #f0f4f8; }
+  .dp-td { padding:10px 14px; border-bottom:1px solid #edf1f6; vertical-align:middle; border-right:1px solid #f0f4f8; }
   .dp-td:last-child { border-right:none; }
   .dp-td-date { font-size:12px; color:#3d5166; white-space:nowrap; }
   .dp-td-action { text-align:center; }
 
-  .dp-cell-value { display:block; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:normal; word-break:break-word; line-height:1.4; color:#1a2b3c; }
+  .dp-cell-value { display:block; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#1a2b3c; }
 
   .dp-detail-btn { background:none; border:1px solid #e2e8ef; border-radius:6px; padding:2px 8px; font-size:15px; color:#7a9ab8; cursor:pointer; letter-spacing:.1em; transition:all .15s; }
   .dp-detail-btn:hover { background:#f0f5fb; color:#0d1b2a; }
