@@ -50,6 +50,10 @@ const PRIORITY_KEYS_FORM2 = [
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
+function safeSheetName(name: string): string {
+  return name.replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'Feuille';
+}
+
 function parseJsonValue(value: any): any {
   if (value === null || value === undefined) return {};
   if (typeof value === 'string') {
@@ -140,7 +144,7 @@ function buildStyledSheet(
   submissions: any[],
   labels: Record<string, string>,
   priorityKeys: string[],
-  sheetTitle: string
+  sheetTitle: string,
 ): XLSX.WorkSheet {
   if (submissions.length === 0) {
     const ws = XLSX.utils.aoa_to_sheet([[`Aucune soumission pour : ${sheetTitle}`]]);
@@ -281,7 +285,7 @@ function buildStyledSheet(
 //   - Colonnes : [device_fp] | [toutes colonnes Form1] | [toutes colonnes Form2]
 //   - En-tête sur 2 niveaux : ligne 1 = titre fusionné par section, ligne 2 = labels
 
-function buildCouplingSheet(form1: any[], form2: any[]): XLSX.WorkSheet {
+function buildCouplingSheet(form1: any[], form2: any[], title1: string, title2: string): XLSX.WorkSheet {
   // Index form1 et form2 par device_fp
   const map1 = new Map<string, any>();
   const map2 = new Map<string, any>();
@@ -333,13 +337,13 @@ function buildCouplingSheet(form1: any[], form2: any[]): XLSX.WorkSheet {
   const totalCols = 1 + cols1.length + cols2.length;
 
   // Ligne 1 : Titre global fusionné
-  const titleRow = ['Couplage Genre & Inclusion × Vie des Étudiants', ...Array(totalCols - 1).fill('')];
+  const titleRow = [`Couplage ${title1} × ${title2}`, ...Array(totalCols - 1).fill('')];
 
   // Ligne 2 : Sections fusionnées (Code appareil | Genre & Inclusion | Vie des Étudiants)
   const sectionRow = [
     'Code appareil',
-    'Genre & Inclusion', ...Array(cols1.length - 1).fill(''),
-    'Vie des Étudiants', ...Array(cols2.length - 1).fill(''),
+    title1, ...Array(cols1.length - 1).fill(''),
+    title2, ...Array(cols2.length - 1).fill(''),
   ];
 
   // Ligne 3 : En-têtes détaillés
@@ -532,7 +536,14 @@ export async function GET(req: NextRequest) {
     const sort = params.get('sort') || 'created_at.desc';
     const format = params.get('format') || undefined;
 
-    // Fetch ALL rows — Supabase limite à 1000 par défaut, on itère par chunks
+    // Titres dynamiques depuis la table config (modifiables dans Paramètres)
+    const { data: cfgRows } = await supabaseAdmin
+      .from('config').select('key, value').in('key', ['title1', 'title2']);
+    const cfgMap = Object.fromEntries((cfgRows || []).map((r: any) => [r.key, r.value]));
+    const TITLE1 = cfgMap['title1'] || 'Genre & Inclusion';
+    const TITLE2 = cfgMap['title2'] || 'Vie des Étudiants';
+
+
     const allRows: any[] = [];
     const CHUNK = 1000;
     let offset = 0;
@@ -604,16 +615,16 @@ export async function GET(req: NextRequest) {
 
       const wb = XLSX.utils.book_new();
 
-      const ws1 = buildStyledSheet(form1, FORM1_LABELS, PRIORITY_KEYS_FORM1, 'Genre et Inclusion');
-      XLSX.utils.book_append_sheet(wb, ws1, 'Genre et Inclusion');
+      const ws1 = buildStyledSheet(form1, FORM1_LABELS, PRIORITY_KEYS_FORM1, TITLE1);
+      XLSX.utils.book_append_sheet(wb, ws1, safeSheetName(TITLE1));
 
       // form1_only : pas de feuille Form2 ni Couplage
       if (!restrictToForm1) {
-        const ws2 = buildStyledSheet(form2, FORM2_LABELS, PRIORITY_KEYS_FORM2, 'Vie des Etudiants');
-        XLSX.utils.book_append_sheet(wb, ws2, 'Vie des Etudiants');
+        const ws2 = buildStyledSheet(form2, FORM2_LABELS, PRIORITY_KEYS_FORM2, TITLE2);
+        XLSX.utils.book_append_sheet(wb, ws2, safeSheetName(TITLE2));
 
         // Feuille de couplage : uniquement les appareils ayant soumis les deux formulaires
-        const wsCoupling = buildCouplingSheet(form1, form2);
+        const wsCoupling = buildCouplingSheet(form1, form2, TITLE1, TITLE2);
         XLSX.utils.book_append_sheet(wb, wsCoupling, 'Couplage');
       }
 
