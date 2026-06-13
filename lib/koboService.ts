@@ -164,17 +164,20 @@ export async function fetchKoboSchema(url: string, token?: string): Promise<Kobo
     for (const q of survey) {
       const type = String(q.type || '');
       if (!type.startsWith('select_one') && !type.startsWith('select_multiple')) continue;
-      const listName = type.split(' ')[1];
+
+      // KoboToolbox peut stocker le nom de liste de deux façons :
+      // 1. Intégré dans type : "select_one list_name"
+      // 2. Champ séparé     : { type: "select_one", select_from_list_name: "list_name" }
+      const listName: string =
+        (type.includes(' ') ? type.split(' ')[1] : '') ||
+        q.select_from_list_name ||
+        q['select_from_list_name'] ||
+        '';
+
       const questionName = q.$autoname || q.name;
       if (!listName || !questionName || !choicesByList[listName]) continue;
       choiceMap[questionName] = choicesByList[listName];
     }
-    console.log(`[KoboSchema] survey=${survey.length} choices=${choices.length} choicesByList=${Object.keys(choicesByList).length} choiceMap=${Object.keys(choiceMap).length} questionMap=${Object.keys(questionMap).length}`);
-    return { choiceMap, questionMap };
-  } catch (error: any) {
-    console.error('[KoboService] Erreur récupération schéma:', error?.response?.status || error?.message);
-    return { choiceMap: {}, questionMap: {} };
-  }
 }
 
 // Compat ascendante — retourne uniquement le choiceMap
