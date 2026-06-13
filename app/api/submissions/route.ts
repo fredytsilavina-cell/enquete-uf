@@ -75,8 +75,8 @@ function labelFor(key: string, labels: Record<string, string>): string {
   return key.replace(/_+/g, ' ').replace(/^\s+|\s+$/g, '').substring(0, 80);
 }
 
-function formatAnswer(value: any): string {
-  return exportKoboValue(value);
+function formatAnswer(value: any, choices?: Record<string, string>): string {
+  return exportKoboValue(value, choices);
 }
 
 function collectAllKeys(submissions: any[], priorityKeys: string[]): string[] {
@@ -145,6 +145,7 @@ function buildStyledSheet(
   labels: Record<string, string>,
   priorityKeys: string[],
   sheetTitle: string,
+  choiceMap?: Record<string, Record<string, string>>,
 ): XLSX.WorkSheet {
   if (submissions.length === 0) {
     const ws = XLSX.utils.aoa_to_sheet([[`Aucune soumission pour : ${sheetTitle}`]]);
@@ -173,7 +174,7 @@ function buildStyledSheet(
         const v = s.payload._submission_time || s.created_at;
         return v ? new Date(v).toLocaleString('fr-FR') : '';
       }
-      return formatAnswer(s.payload[k]);
+      return formatAnswer(s.payload[k], choiceMap?.[k]);
     })
   );
 
@@ -285,7 +286,7 @@ function buildStyledSheet(
 //   - Colonnes : [device_fp] | [toutes colonnes Form1] | [toutes colonnes Form2]
 //   - En-tête sur 2 niveaux : ligne 1 = titre fusionné par section, ligne 2 = labels
 
-function buildCouplingSheet(form1: any[], form2: any[], title1: string, title2: string): XLSX.WorkSheet {
+function buildCouplingSheet(form1: any[], form2: any[], title1: string, title2: string, choiceMap1?: Record<string, Record<string, string>>, choiceMap2?: Record<string, Record<string, string>>): XLSX.WorkSheet {
   // Index form1 et form2 par device_fp
   const map1 = new Map<string, any>();
   const map2 = new Map<string, any>();
@@ -354,13 +355,13 @@ function buildCouplingSheet(form1: any[], form2: any[], title1: string, title2: 
   ];
 
   // Lignes de données
-  function extractVal(payload: any, key: string, createdAt: string): string {
+  function extractVal(payload: any, key: string, createdAt: string, choices?: Record<string, string>): string {
     if (key === '_id') return String(payload._id ?? '');
     if (key === '_submission_time') {
       const v = payload._submission_time || createdAt;
       return v ? new Date(v).toLocaleString('fr-FR') : '';
     }
-    return formatAnswer(payload[key]);
+    return formatAnswer(payload[key], choices);
   }
 
   const dataRows = pairedFps.map(fp => {
@@ -368,8 +369,8 @@ function buildCouplingSheet(form1: any[], form2: any[], title1: string, title2: 
     const r2 = map2.get(fp)!;
     return [
       fp,
-      ...cols1.map(k => extractVal(r1.payload, k, r1.created_at)),
-      ...cols2.map(k => extractVal(r2.payload, k, r2.created_at)),
+      ...cols1.map(k => extractVal(r1.payload, k, r1.created_at, choiceMap1?.[k])),
+      ...cols2.map(k => extractVal(r2.payload, k, r2.created_at, choiceMap2?.[k])),
     ];
   });
 
@@ -538,10 +539,18 @@ export async function GET(req: NextRequest) {
 
     // Titres dynamiques depuis la table config (modifiables dans Paramètres)
     const { data: cfgRows } = await supabaseAdmin
-      .from('config').select('id, value').in('id', ['title1', 'title2']);
+      .from('config').select('id, value').in('id', ['title1', 'title2', 'kobo_choice_map1', 'kobo_choice_map2']);
     const cfgMap = Object.fromEntries((cfgRows || []).map((r: any) => [r.id, r.value]));
     const TITLE1 = cfgMap['title1'] || 'Genre & Inclusion';
     const TITLE2 = cfgMap['title2'] || 'Vie des Étudiants';
+
+    // Carte dynamique code -> label (avec accents), construite a partir du
+    // schema KoboToolbox lors de la derniere synchronisation. Reflete
+    // automatiquement tout renommage de question/reponse dans Kobo.
+    let CHOICE_MAP1: Record<string, Record<string, string>> = {};
+    let CHOICE_MAP2: Record<string, Record<string, string>> = {};
+    try { if (cfgMap['kobo_choice_map1']) CHOICE_MAP1 = JSON.parse(cfgMap['kobo_choice_map1']); } catch {}
+    try { if (cfgMap['kobo_choice_map2']) CHOICE_MAP2 = JSON.parse(cfgMap['kobo_choice_map2']); } catch {}
 
 
     const allRows: any[] = [];
@@ -615,16 +624,16 @@ export async function GET(req: NextRequest) {
 
       const wb = XLSX.utils.book_new();
 
-      const ws1 = buildStyledSheet(form1, FORM1_LABELS, PRIORITY_KEYS_FORM1, TITLE1);
+      const ws1 = buildStyledSheet(form1, FORM1_LABELS, PRIORITY_KEYS_FORM1, TITLE1, CHOICE_MAP1);
       XLSX.utils.book_append_sheet(wb, ws1, safeSheetName(TITLE1));
 
       // form1_only : pas de feuille Form2 ni Couplage
       if (!restrictToForm1) {
-        const ws2 = buildStyledSheet(form2, FORM2_LABELS, PRIORITY_KEYS_FORM2, TITLE2);
+        const ws2 = buildStyledSheet(form2, FORM2_LABELS, PRIORITY_KEYS_FORM2, TITLE2, CHOICE_MAP2);
         XLSX.utils.book_append_sheet(wb, ws2, safeSheetName(TITLE2));
 
         // Feuille de couplage : uniquement les appareils ayant soumis les deux formulaires
-        const wsCoupling = buildCouplingSheet(form1, form2, TITLE1, TITLE2);
+        const wsCoupling = buildCouplingSheet(form1, form2, TITLE1, TITLE2, CHOICE_MAP1, CHOICE_MAP2);
         XLSX.utils.book_append_sheet(wb, wsCoupling, 'Couplage');
       }
 
@@ -645,9 +654,10 @@ export async function GET(req: NextRequest) {
       const header = allKeys.map(k => `"${labelFor(k, FORM1_LABELS)}"`).join(',');
       const csvRows = all.map(r =>
         allKeys.map(k => {
+          const choices = String(r.form || '').toLowerCase().includes('genre') ? CHOICE_MAP1[k] : CHOICE_MAP2[k];
           const v = k === '_submission_time'
             ? (r.payload._submission_time || r.created_at || '')
-            : formatAnswer(r.payload[k]);
+            : formatAnswer(r.payload[k], choices);
           return `"${String(v).replace(/"/g, '""')}"`;
         }).join(',')
       );

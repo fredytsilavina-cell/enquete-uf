@@ -29,8 +29,20 @@ const HIDDEN_KEYS = new Set([
 const PRIORITY_KEYS = ["_id", "_submission_time", "start", "end", "device_fp"];
 
 // Décode les valeurs Kobo en utilisant le décodeur robuste avec table de mapping
-function decodeValue(value: any): string {
-  return displayKoboValue(value);
+function decodeValue(value: any, fieldChoices?: Record<string, string>): string {
+  return displayKoboValue(value, fieldChoices);
+}
+
+// Selectionne la carte de libelles (map1/map2) correspondant au formulaire
+// d'une soumission donnee.
+function choicesFor(
+  form: string,
+  key: string,
+  maps: { map1: Record<string, Record<string, string>>; map2: Record<string, Record<string, string>> }
+): Record<string, string> | undefined {
+  const f = String(form || "").toLowerCase();
+  const map = f.includes("genre") ? maps.map1 : maps.map2;
+  return map[key];
 }
 
 // Transforme une clé Kobo en label lisible
@@ -84,6 +96,8 @@ export default function AdminDataPage() {
   const [userRole, setUserRole] = useState<"admin" | "form1_only" | null>(null);
   // Labels dynamiques depuis config Supabase
   const [formLabels, setFormLabels] = useState<{ form1: string; form2: string }>({ form1: "Genre & Inclusion", form2: "Vie estudiantine" });
+  // Cartes dynamiques code -> label (avec accents), depuis le schema KoboToolbox
+  const [choiceMaps, setChoiceMaps] = useState<{ map1: Record<string, Record<string, string>>; map2: Record<string, Record<string, string>> }>({ map1: {}, map2: {} });
   // Formulaires présents dans les données chargées
   const [availableForms, setAvailableForms] = useState<Set<string>>(new Set());
   const PAGE_SIZE = 20;
@@ -102,12 +116,18 @@ export default function AdminDataPage() {
 
       // Charger les titres dynamiques depuis config
       const { data: configRows } = await supabase
-        .from("config").select("id, value").in("id", ["title1", "title2"]);
+        .from("config").select("id, value").in("id", ["title1", "title2", "kobo_choice_map1", "kobo_choice_map2"]);
       const cfgMap = Object.fromEntries((configRows || []).map((r: any) => [r.id, r.value]));
       setFormLabels({
         form1: cfgMap["title1"] || "Genre & Inclusion",
         form2: cfgMap["title2"] || "Vie estudiantine",
       });
+      try {
+        setChoiceMaps({
+          map1: cfgMap["kobo_choice_map1"] ? JSON.parse(cfgMap["kobo_choice_map1"]) : {},
+          map2: cfgMap["kobo_choice_map2"] ? JSON.parse(cfgMap["kobo_choice_map2"]) : {},
+        });
+      } catch { /* ignore parse errors, fallback to heuristics */ }
 
       // form1_only : forcer le filtre sur le formulaire 1 dès le départ
       const initialForm = role === "form1_only" ? "genre_inclusion" : "";
@@ -361,7 +381,7 @@ export default function AdminDataPage() {
                       .map(k => (
                         <td key={k} className="dp-td">
                           <span className="dp-cell-value">
-                            {decodeValue(row.payload[k])}
+                            {decodeValue(row.payload[k], choicesFor(row.form, k, choiceMaps))}
                           </span>
                         </td>
                       ))}
@@ -399,7 +419,7 @@ export default function AdminDataPage() {
 
       {/* Modal détail */}
       {detailRow && (
-        <DetailModal row={detailRow} onClose={() => setDetailRow(null)} labels={formLabels} />
+        <DetailModal row={detailRow} onClose={() => setDetailRow(null)} labels={formLabels} choiceMaps={choiceMaps} />
       )}
 
       <style>{STYLES}</style>
@@ -427,7 +447,10 @@ function FormBadge({ form, labels }: { form: string; labels?: { form1: string; f
   );
 }
 
-function DetailModal({ row, onClose, labels }: { row: Submission; onClose: () => void; labels?: { form1: string; form2: string } }) {
+function DetailModal({ row, onClose, labels, choiceMaps }: {
+  row: Submission; onClose: () => void; labels?: { form1: string; form2: string };
+  choiceMaps?: { map1: Record<string, Record<string, string>>; map2: Record<string, Record<string, string>> };
+}) {
   const entries = Object.entries(row.payload || {})
     .filter(([k]) => !["formhub/uuid", "meta/instanceID", "meta/rootUuid",
       "_attachments", "_geolocation", "_tags", "_notes", "_validation_status"].includes(k));
@@ -448,7 +471,7 @@ function DetailModal({ row, onClose, labels }: { row: Submission; onClose: () =>
           {entries.map(([k, v]) => (
             <div key={k} className="dp-modal-row">
               <span className="dp-modal-key">{humanizeKey(k)}</span>
-              <span className="dp-modal-val">{decodeValue(v)}</span>
+              <span className="dp-modal-val">{decodeValue(v, choiceMaps && choicesFor(row.form, k, choiceMaps))}</span>
             </div>
           ))}
         </div>

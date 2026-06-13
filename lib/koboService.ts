@@ -89,6 +89,102 @@ export function toKoboApiUrl(url: string): string | null {
   }
 }
 
+// Extrait l'UID de l'asset (ex: "aXyZ123abc") depuis une URL KoboToolbox
+// quelle que soit sa forme (hash route, /forms/<uid>, ou API directe).
+export function extractAssetUid(url: string): { origin: string; uid: string } | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url.trim());
+    const origin = `${parsed.protocol}//${parsed.hostname}`;
+
+    const hashFormMatch = url.match(/#\/?forms\/([a-zA-Z0-9]{5,})/);
+    if (hashFormMatch) return { origin, uid: hashFormMatch[1] };
+
+    const apiMatch = parsed.pathname.match(/\/api\/v2\/assets\/([a-zA-Z0-9]{5,})/);
+    if (apiMatch) return { origin, uid: apiMatch[1] };
+
+    const pathFormMatch = parsed.pathname.match(/\/forms\/([a-zA-Z0-9]{5,})/);
+    if (pathFormMatch) return { origin, uid: pathFormMatch[1] };
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Carte des libellés de choix (code → label avec accents) ─────────────
+// { [questionName]: { [choiceValue]: "Label en français avec accents" } }
+export type KoboChoiceMap = Record<string, Record<string, string>>;
+
+/**
+ * Récupère le schéma du formulaire (survey + choices) depuis l'API
+ * KoboToolbox et construit une carte code → libellé pour chaque question
+ * de type select_one / select_multiple, en utilisant le libellé exact
+ * défini dans le formulaire (avec accents).
+ *
+ * Cette carte est la source de vérité : elle reflète automatiquement
+ * tout renommage de question/réponse fait dans KoboToolbox, sans
+ * intervention manuelle dans le code.
+ */
+export async function fetchKoboChoiceMap(url: string, token?: string): Promise<KoboChoiceMap> {
+  const ref = extractAssetUid(url);
+  if (!ref) return {};
+
+  const authToken = token || process.env.KOBO_TOKEN || '';
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (authToken) headers['Authorization'] = `Token ${authToken}`;
+
+  const metaUrl = `${ref.origin}/api/v2/assets/${ref.uid}/?format=json`;
+
+  try {
+    const res = await axios.get<any>(metaUrl, { timeout: 30000, headers });
+    const content = res.data?.content;
+    if (!content) return {};
+
+    const survey: any[] = content.survey || [];
+    const choices: any[] = content.choices || [];
+
+    // Préférer le libellé français si plusieurs langues sont définies
+    const langs: string[] = content.translations || [];
+    let langIndex = 0;
+    const frIndex = langs.findIndex((l: string) => /fran|french|^fr/i.test(l || ''));
+    if (frIndex >= 0) langIndex = frIndex;
+
+    const labelOf = (entry: any): string => {
+      if (Array.isArray(entry?.label)) {
+        return entry.label[langIndex] ?? entry.label[0] ?? '';
+      }
+      return entry?.label ?? '';
+    };
+
+    // Regrouper les choix par list_name
+    const choicesByList: Record<string, Record<string, string>> = {};
+    for (const c of choices) {
+      const listName = c.list_name;
+      const value = c.name ?? c.value ?? c.$autovalue;
+      const label = labelOf(c);
+      if (!listName || value === undefined || !label) continue;
+      (choicesByList[listName] ||= {})[String(value)] = String(label);
+    }
+
+    // Associer chaque question select_* à sa liste de choix
+    const map: KoboChoiceMap = {};
+    for (const q of survey) {
+      const type = String(q.type || '');
+      if (!type.startsWith('select_one') && !type.startsWith('select_multiple')) continue;
+      const listName = type.split(' ')[1];
+      const questionName = q.$autoname || q.name;
+      if (!listName || !questionName || !choicesByList[listName]) continue;
+      map[questionName] = choicesByList[listName];
+    }
+
+    return map;
+  } catch (error: any) {
+    console.error('[KoboService] Erreur récupération schéma (choice map):', error?.response?.status || error?.message);
+    return {};
+  }
+}
+
 // Récupérer la configuration des URLs depuis Supabase
 export async function getKoboConfig(): Promise<KoboConfig | null> {
   try {
@@ -291,6 +387,15 @@ export async function syncKoboData({ onlyForm1 = false }: { onlyForm1?: boolean 
       console.log('[KoboService] Sync formulaire 1 (genre_inclusion)...');
       const data = await fetchFromKoboAPI(config.url1, token);
       synced.push({ formId: 'genre_inclusion', data });
+
+      // Rafraichit la carte de libelles (code -> label) depuis le schema du formulaire
+      const choiceMap1 = await fetchKoboChoiceMap(config.url1, token);
+      if (Object.keys(choiceMap1).length > 0) {
+        await supabaseAdmin.from('config').upsert(
+          { id: 'kobo_choice_map1', value: JSON.stringify(choiceMap1) },
+          { onConflict: 'id' }
+        );
+      }
     } else {
       console.log('[KoboService] Formulaire 1 ignore — URL non configuree.');
     }
@@ -299,6 +404,14 @@ export async function syncKoboData({ onlyForm1 = false }: { onlyForm1?: boolean 
       console.log('[KoboService] Sync formulaire 2 (vie_etudiants)...');
       const data = await fetchFromKoboAPI(config.url2, token2);
       synced.push({ formId: 'vie_etudiants', data });
+
+      const choiceMap2 = await fetchKoboChoiceMap(config.url2, token2);
+      if (Object.keys(choiceMap2).length > 0) {
+        await supabaseAdmin.from('config').upsert(
+          { id: 'kobo_choice_map2', value: JSON.stringify(choiceMap2) },
+          { onConflict: 'id' }
+        );
+      }
     } else if (onlyForm1) {
       console.log('[KoboService] Formulaire 2 ignore — acces restreint au formulaire 1.');
     } else {

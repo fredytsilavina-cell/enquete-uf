@@ -275,12 +275,12 @@ function heuristicDecode(raw: string): string {
  *   ["a", "b"]             → "a, b"               (tableaux)
  *   null / undefined       → ""                   (vide)
  */
-export function decodeKoboValue(value: unknown): string {
+export function decodeKoboValue(value: unknown, choices?: Record<string, string>): string {
   if (value === null || value === undefined || value === '') return '';
 
   // Tableaux : decoder chaque element
   if (Array.isArray(value)) {
-    return value.map(decodeKoboValue).filter(Boolean).join(', ');
+    return value.map(v => decodeKoboValue(v, choices)).filter(Boolean).join(', ');
   }
 
   // Objets : serialiser (cas rare)
@@ -290,6 +290,20 @@ export function decodeKoboValue(value: unknown): string {
 
   const str = String(value).trim();
   if (!str) return '';
+
+  // ── Carte dynamique (depuis le schema KoboToolbox) ───────────────────────
+  // Source de verite : reflete automatiquement les libelles definis dans le
+  // formulaire Kobo (avec accents), y compris pour les valeurs select_multiple
+  // qui contiennent plusieurs codes separes par des espaces.
+  if (choices) {
+    if (choices[str]) return choices[str];
+    if (str.includes(' ')) {
+      const parts = str.split(' ').filter(Boolean);
+      if (parts.every(p => choices[p])) {
+        return parts.map(p => choices[p]).join(', ');
+      }
+    }
+  }
 
   // ── Dates ISO ────────────────────────────────────────────────────────────
   if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
@@ -350,12 +364,12 @@ function PHRASE_FIXES_HAS_MATCH(str: string): boolean {
 }
 
 // ─── Decodage d'une valeur pour l'affichage UI (avec fallback "—") ─────────
-export function displayKoboValue(value: unknown): string {
-  const decoded = decodeKoboValue(value);
+export function displayKoboValue(value: unknown, choices?: Record<string, string>): string {
+  const decoded = decodeKoboValue(value, choices);
   return decoded || '—';
 }
 
 // ─── Decodage d'une valeur pour l'export (vide = chaine vide) ─────────────
-export function exportKoboValue(value: unknown): string {
-  return decodeKoboValue(value);
+export function exportKoboValue(value: unknown, choices?: Record<string, string>): string {
+  return decodeKoboValue(value, choices);
 }
