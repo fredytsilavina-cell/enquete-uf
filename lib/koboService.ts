@@ -178,6 +178,11 @@ export async function fetchKoboSchema(url: string, token?: string): Promise<Kobo
       if (!listName || !questionName || !choicesByList[listName]) continue;
       choiceMap[questionName] = choicesByList[listName];
     }
+
+    return { choiceMap, questionMap };
+  } catch {
+    return { choiceMap: {}, questionMap: {} };
+  }
 }
 
 // Compat ascendante — retourne uniquement le choiceMap
