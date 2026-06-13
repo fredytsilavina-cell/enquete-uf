@@ -169,7 +169,7 @@ export async function fetchKoboSchema(url: string, token?: string): Promise<Kobo
       if (!listName || !questionName || !choicesByList[listName]) continue;
       choiceMap[questionName] = choicesByList[listName];
     }
-
+    console.log(`[KoboSchema] survey=${survey.length} choices=${choices.length} choicesByList=${Object.keys(choicesByList).length} choiceMap=${Object.keys(choiceMap).length} questionMap=${Object.keys(questionMap).length}`);
     return { choiceMap, questionMap };
   } catch (error: any) {
     console.error('[KoboService] Erreur récupération schéma:', error?.response?.status || error?.message);
