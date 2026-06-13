@@ -102,8 +102,8 @@ export default function AdminDataPage() {
 
       // Charger les titres dynamiques depuis config
       const { data: configRows } = await supabase
-        .from("config").select("key, value").in("key", ["title1", "title2"]);
-      const cfgMap = Object.fromEntries((configRows || []).map((r: any) => [r.key, r.value]));
+        .from("config").select("id, value").in("id", ["title1", "title2"]);
+      const cfgMap = Object.fromEntries((configRows || []).map((r: any) => [r.id, r.value]));
       setFormLabels({
         form1: cfgMap["title1"] || "Genre & Inclusion",
         form2: cfgMap["title2"] || "Vie estudiantine",

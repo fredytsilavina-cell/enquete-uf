@@ -81,6 +81,7 @@ export default function AdminDashboardPage() {
   const [activeFilter, setActiveFilter] = useState<"" | "genre_inclusion" | "vie_etudiants">("");
   const [realtimeLive, setRealtimeLive] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [formLabels, setFormLabels] = useState<{ form1: string; form2: string }>({ form1: "Genre & Inclusion", form2: "Vie des Étudiants" });
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const filtersRef = useRef({ form: "", dateRange: "", search: "", page: 1 });
@@ -167,6 +168,15 @@ export default function AdminDashboardPage() {
       const { data: roleRow } = await supabase
         .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
       setUserRole(((roleRow as any)?.role || "admin") as "admin" | "form1_only");
+
+      const { data: configRows } = await supabase
+        .from("config").select("id, value").in("id", ["title1", "title2"]);
+      const cfgMap = Object.fromEntries((configRows || []).map((r: any) => [r.id, r.value]));
+      setFormLabels({
+        form1: cfgMap["title1"] || "Genre & Inclusion",
+        form2: cfgMap["title2"] || "Vie des Étudiants",
+      });
+
       await refreshAll();
       setLoading(false);
     };
@@ -232,7 +242,7 @@ export default function AdminDashboardPage() {
           background: value === "genre_inclusion" ? "#dcfce7" : "#ede9fe",
           color: value === "genre_inclusion" ? "#15803d" : "#7c3aed",
         }}>
-          {value === "genre_inclusion" ? "Genre & Inclusion" : "Vie des Étudiants"}
+          {value === "genre_inclusion" ? formLabels.form1 : formLabels.form2}
         </span>
       ),
     },
@@ -327,8 +337,8 @@ export default function AdminDashboardPage() {
       {/* Stats Cards — responsive grid */}
       <div className="stats-grid" style={{ marginBottom: 24 }}>
         <StatsCard label="Total reçu" value={stats.total} subtitle="soumissions enregistrées" color="navy" />
-        <StatsCard label="Genre & Inclusion" value={stats.form1} subtitle="formulaire 1" color="green" />
-        {userRole === "admin" && <StatsCard label="Vie des Étudiants" value={stats.form2} subtitle="formulaire 2" color="purple" />}
+        <StatsCard label={formLabels.form1} value={stats.form1} subtitle="formulaire 1" color="green" />
+        {userRole === "admin" && <StatsCard label={formLabels.form2} value={stats.form2} subtitle="formulaire 2" color="purple" />}
         <StatsCard label="Aujourd'hui" value={stats.today} subtitle="nouvelles réponses" color="orange" />
       </div>
 
@@ -341,8 +351,8 @@ export default function AdminDashboardPage() {
           </div>
           <div className="filter-btn-group">
             <button onClick={() => handleFormFilter("")} style={filterBtnStyle(activeFilter === "")}>Tous</button>
-            <button onClick={() => handleFormFilter("genre_inclusion")} style={filterBtnStyle(activeFilter === "genre_inclusion", "#15803d")}>Genre & Inclusion</button>
-            {userRole === "admin" && <button onClick={() => handleFormFilter("vie_etudiants")} style={filterBtnStyle(activeFilter === "vie_etudiants", "#7c3aed")}>Vie des Étudiants</button>}
+            <button onClick={() => handleFormFilter("genre_inclusion")} style={filterBtnStyle(activeFilter === "genre_inclusion", "#15803d")}>{formLabels.form1}</button>
+            {userRole === "admin" && <button onClick={() => handleFormFilter("vie_etudiants")} style={filterBtnStyle(activeFilter === "vie_etudiants", "#7c3aed")}>{formLabels.form2}</button>}
           </div>
         </div>
 
@@ -357,8 +367,8 @@ export default function AdminDashboardPage() {
           />
           <Chart
             data={[
-              { name: "Genre & Inclusion", value: stats.form1 },
-              ...(userRole === "admin" ? [{ name: "Vie des Étudiants", value: stats.form2 }] : []),
+              { name: formLabels.form1, value: stats.form1 },
+              ...(userRole === "admin" ? [{ name: formLabels.form2, value: stats.form2 }] : []),
             ]}
             type="pie"
             title=""
@@ -393,6 +403,7 @@ export default function AdminDashboardPage() {
             onSearch={handleSearch}
             onFilterChange={handleFilterChange}
             placeholder="Rechercher dans les données…"
+            formLabels={formLabels}
           />
         </div>
 

@@ -538,8 +538,8 @@ export async function GET(req: NextRequest) {
 
     // Titres dynamiques depuis la table config (modifiables dans Paramètres)
     const { data: cfgRows } = await supabaseAdmin
-      .from('config').select('key, value').in('key', ['title1', 'title2']);
-    const cfgMap = Object.fromEntries((cfgRows || []).map((r: any) => [r.key, r.value]));
+      .from('config').select('id, value').in('id', ['title1', 'title2']);
+    const cfgMap = Object.fromEntries((cfgRows || []).map((r: any) => [r.id, r.value]));
     const TITLE1 = cfgMap['title1'] || 'Genre & Inclusion';
     const TITLE2 = cfgMap['title2'] || 'Vie des Étudiants';
 
