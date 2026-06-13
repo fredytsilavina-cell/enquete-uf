@@ -17,7 +17,6 @@ type SyncStatus = "idle" | "syncing" | "success" | "error";
 
 // ── Utilitaires ────────────────────────────────────────────────────────────
 
-// Clés internes Kobo à masquer dans le tableau
 const HIDDEN_KEYS = new Set([
   "formhub/uuid", "meta/instanceID", "meta/rootUuid",
   "_attachments", "_geolocation", "_tags", "_notes",
@@ -25,16 +24,12 @@ const HIDDEN_KEYS = new Set([
   "_xform_id_string", "_uuid", "instanceID",
 ]);
 
-// Clés à toujours afficher en premier
 const PRIORITY_KEYS = ["_id", "_submission_time", "start", "end", "device_fp"];
 
-// Décode les valeurs Kobo en utilisant le décodeur robuste avec table de mapping
 function decodeValue(value: any, fieldChoices?: Record<string, string>): string {
   return displayKoboValue(value, fieldChoices);
 }
 
-// Selectionne la carte de libelles (map1/map2) correspondant au formulaire
-// d'une soumission donnee.
 function choicesFor(
   form: string,
   key: string,
@@ -45,15 +40,22 @@ function choicesFor(
   return map[key];
 }
 
-// Transforme une clé Kobo en label lisible
-// "G1_Pensez_vous_que_ns_votre_universit_" → "G1 – Pensez vous que ns votre universit"
-function humanizeKey(key: string): string {
+/**
+ * Retourne le libellé d'une clé Kobo.
+ * Priorité : 1) questionMap (libellé réel depuis le schéma Kobo), 2) cas spéciaux, 3) humanisation heuristique.
+ */
+function humanizeKey(key: string, questionMap?: Record<string, string>): string {
+  // 1. Libellé réel depuis le schéma KoboToolbox
+  if (questionMap?.[key]) return questionMap[key];
+
+  // 2. Cas spéciaux statiques
   if (key === "_id") return "ID Kobo";
   if (key === "_submission_time") return "Date soumission";
   if (key === "start") return "Début";
   if (key === "end") return "Fin";
   if (key === "device_fp") return "Appareil";
-  // Retire les underscores de fin, remplace les _ par espace
+
+  // 3. Humanisation heuristique (underscores → espaces)
   return key
     .replace(/^_+/, "")
     .replace(/_+$/, "")
@@ -61,7 +63,6 @@ function humanizeKey(key: string): string {
     .trim();
 }
 
-// Collecte toutes les clés visibles depuis un tableau de soumissions
 function collectKeys(submissions: Submission[]): string[] {
   const seen = new Set<string>();
   for (const s of submissions) {
@@ -69,7 +70,6 @@ function collectKeys(submissions: Submission[]): string[] {
       if (!HIDDEN_KEYS.has(k)) seen.add(k);
     }
   }
-  // Prioritaires d'abord, puis le reste trié
   const priority = PRIORITY_KEYS.filter(k => seen.has(k));
   const rest = [...seen].filter(k => !PRIORITY_KEYS.includes(k)).sort();
   return [...priority, ...rest];
@@ -89,16 +89,20 @@ export default function AdminDataPage() {
   const [dateRange, setDateRange] = useState("");
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
-  // Quel formulaire est affiché dans le tableau (pour colonnes dynamiques)
   const [activeTab, setActiveTab] = useState<"all" | "genre_inclusion" | "vie_etudiants">("all");
-  // Détail d'une ligne (modal)
   const [detailRow, setDetailRow] = useState<Submission | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "form1_only" | null>(null);
-  // Labels dynamiques depuis config Supabase
   const [formLabels, setFormLabels] = useState<{ form1: string; form2: string }>({ form1: "Genre & Inclusion", form2: "Vie estudiantine" });
-  // Cartes dynamiques code -> label (avec accents), depuis le schema KoboToolbox
-  const [choiceMaps, setChoiceMaps] = useState<{ map1: Record<string, Record<string, string>>; map2: Record<string, Record<string, string>> }>({ map1: {}, map2: {} });
-  // Formulaires présents dans les données chargées
+  // Cartes dynamiques code → label pour les valeurs de réponse
+  const [choiceMaps, setChoiceMaps] = useState<{
+    map1: Record<string, Record<string, string>>;
+    map2: Record<string, Record<string, string>>;
+  }>({ map1: {}, map2: {} });
+  // Cartes dynamiques autoname → libellé pour les en-têtes de colonnes
+  const [questionMaps, setQuestionMaps] = useState<{
+    map1: Record<string, string>;
+    map2: Record<string, string>;
+  }>({ map1: {}, map2: {} });
   const [availableForms, setAvailableForms] = useState<Set<string>>(new Set());
   const PAGE_SIZE = 20;
 
@@ -107,17 +111,22 @@ export default function AdminDataPage() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) { router.replace("/admin/login"); return; }
 
-      // Charger le rôle
       const userId = data.session.user.id;
       const { data: roleRow } = await supabase
         .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
       const role = (roleRow as any)?.role || "admin";
       setUserRole(role as "admin" | "form1_only");
 
-      // Charger les titres dynamiques depuis config
+      // Charger config : titres + cartes choix + cartes libellés questions
       const { data: configRows } = await supabase
-        .from("config").select("id, value").in("id", ["title1", "title2", "kobo_choice_map1", "kobo_choice_map2"]);
+        .from("config").select("id, value")
+        .in("id", [
+          "title1", "title2",
+          "kobo_choice_map1", "kobo_choice_map2",
+          "kobo_question_map1", "kobo_question_map2",
+        ]);
       const cfgMap = Object.fromEntries((configRows || []).map((r: any) => [r.id, r.value]));
+
       setFormLabels({
         form1: cfgMap["title1"] || "Genre & Inclusion",
         form2: cfgMap["title2"] || "Vie estudiantine",
@@ -127,9 +136,14 @@ export default function AdminDataPage() {
           map1: cfgMap["kobo_choice_map1"] ? JSON.parse(cfgMap["kobo_choice_map1"]) : {},
           map2: cfgMap["kobo_choice_map2"] ? JSON.parse(cfgMap["kobo_choice_map2"]) : {},
         });
-      } catch { /* ignore parse errors, fallback to heuristics */ }
+      } catch { /* ignore, fallback aux heuristiques */ }
+      try {
+        setQuestionMaps({
+          map1: cfgMap["kobo_question_map1"] ? JSON.parse(cfgMap["kobo_question_map1"]) : {},
+          map2: cfgMap["kobo_question_map2"] ? JSON.parse(cfgMap["kobo_question_map2"]) : {},
+        });
+      } catch { /* ignore */ }
 
-      // form1_only : forcer le filtre sur le formulaire 1 dès le départ
       const initialForm = role === "form1_only" ? "genre_inclusion" : "";
       if (initialForm) setSelectedForm(initialForm);
       await loadSubmissions({ page: 1, form: initialForm });
@@ -137,6 +151,14 @@ export default function AdminDataPage() {
     };
     init();
   }, [router]);
+
+  // questionMap actif selon l'onglet sélectionné (fusionné pour "Toutes")
+  const activeQuestionMap = useMemo(() => {
+    if (activeTab === "genre_inclusion") return questionMaps.map1;
+    if (activeTab === "vie_etudiants") return questionMaps.map2;
+    // "all" : fusionner les deux cartes (map1 prioritaire en cas de conflit)
+    return { ...questionMaps.map2, ...questionMaps.map1 };
+  }, [activeTab, questionMaps]);
 
   async function loadSubmissions(options: {
     page: number; form?: string; dateRange?: string; search?: string;
@@ -154,7 +176,6 @@ export default function AdminDataPage() {
       setTotalCount(json.count || 0);
       setCurrentPage(options.page);
       setError(null);
-      // Détecter les formulaires présents
       const forms = new Set<string>();
       for (const s of data) {
         const f = String(s.form || "").toLowerCase();
@@ -192,6 +213,25 @@ export default function AdminDataPage() {
           ? "Sync terminée — aucune soumission. Vérifiez les URLs data et le token dans Paramètres."
           : (json.message || "Synchronisation réussie") + detail
       );
+
+      // Recharger les cartes depuis Supabase après sync
+      const { data: configRows } = await supabase
+        .from("config").select("id, value")
+        .in("id", ["kobo_choice_map1", "kobo_choice_map2", "kobo_question_map1", "kobo_question_map2"]);
+      const cfgMap = Object.fromEntries((configRows || []).map((r: any) => [r.id, r.value]));
+      try {
+        setChoiceMaps({
+          map1: cfgMap["kobo_choice_map1"] ? JSON.parse(cfgMap["kobo_choice_map1"]) : {},
+          map2: cfgMap["kobo_choice_map2"] ? JSON.parse(cfgMap["kobo_choice_map2"]) : {},
+        });
+      } catch { /* ignore */ }
+      try {
+        setQuestionMaps({
+          map1: cfgMap["kobo_question_map1"] ? JSON.parse(cfgMap["kobo_question_map1"]) : {},
+          map2: cfgMap["kobo_question_map2"] ? JSON.parse(cfgMap["kobo_question_map2"]) : {},
+        });
+      } catch { /* ignore */ }
+
       await loadSubmissions({ page: 1, form: selectedForm, dateRange, search: searchQuery });
       setTimeout(() => { setSyncStatus("idle"); setSyncMessage(null); }, 5000);
     } catch (e: any) {
@@ -209,7 +249,6 @@ export default function AdminDataPage() {
     window.open(`/api/submissions?${qs.toString()}`);
   }
 
-  // Filtrage par onglet côté client (les données chargées sont déjà filtrées côté API)
   const displayedSubmissions = useMemo(() => {
     if (activeTab === "all") return submissions;
     return submissions.filter(s => String(s.form).includes(
@@ -217,7 +256,6 @@ export default function AdminDataPage() {
     ));
   }, [submissions, activeTab]);
 
-  // Colonnes dynamiques : calculées depuis les données affichées
   const dynamicKeys = useMemo(() => collectKeys(displayedSubmissions), [displayedSubmissions]);
 
   const form1Count = submissions.filter(s => String(s.form).includes("genre")).length;
@@ -235,7 +273,6 @@ export default function AdminDataPage() {
   }
 
   function handleFilterChange(f: { form?: string; dateRange?: string }) {
-    // form1_only : le formulaire est verrouillé sur genre_inclusion, on ignore tout changement
     const effectiveForm = userRole === "form1_only" ? "genre_inclusion" : (f.form || "");
     setSelectedForm(effectiveForm);
     setDateRange(f.dateRange || "");
@@ -294,7 +331,7 @@ export default function AdminDataPage() {
 
       {/* Tableau */}
       <div className="dp-table-card">
-        {/* Onglets formulaire — "Toutes" seulement si 2 formulaires présents */}
+        {/* Onglets */}
         <div className="dp-tabs">
           {((): { key: "all" | "genre_inclusion" | "vie_etudiants"; label: string }[] => {
             const hasGenre = availableForms.has("genre_inclusion");
@@ -317,7 +354,7 @@ export default function AdminDataPage() {
           </div>
         </div>
 
-        {/* Recherche — rendu seulement après chargement du rôle pour éviter le flash des options admin */}
+        {/* Recherche */}
         <div className="dp-search-wrap">
           {userRole !== null && (
             <SearchFilter
@@ -345,15 +382,13 @@ export default function AdminDataPage() {
             <table className="dp-table">
               <thead>
                 <tr>
-                  {/* Colonnes fixes de contexte */}
                   <th className="dp-th dp-th-form">Formulaire</th>
                   <th className="dp-th dp-th-date">Date soumission</th>
-                  {/* Colonnes dynamiques issues des données */}
                   {dynamicKeys
                     .filter(k => !["_id", "_submission_time"].includes(k))
                     .map(k => (
                       <th key={k} className="dp-th" title={k}>
-                        {humanizeKey(k)}
+                        {humanizeKey(k, activeQuestionMap)}
                       </th>
                     ))}
                   <th className="dp-th dp-th-action"></th>
@@ -362,11 +397,9 @@ export default function AdminDataPage() {
               <tbody>
                 {displayedSubmissions.map((row, i) => (
                   <tr key={row.id} className={`dp-tr ${i % 2 === 0 ? "dp-tr--even" : ""}`}>
-                    {/* Formulaire badge */}
                     <td className="dp-td">
                       <FormBadge form={row.form} labels={formLabels} />
                     </td>
-                    {/* Date */}
                     <td className="dp-td dp-td-date">
                       {row.created_at
                         ? new Date(row.created_at).toLocaleString("fr-FR", {
@@ -375,7 +408,6 @@ export default function AdminDataPage() {
                           })
                         : "—"}
                     </td>
-                    {/* Réponses dynamiques */}
                     {dynamicKeys
                       .filter(k => !["_id", "_submission_time"].includes(k))
                       .map(k => (
@@ -385,7 +417,6 @@ export default function AdminDataPage() {
                           </span>
                         </td>
                       ))}
-                    {/* Bouton détail */}
                     <td className="dp-td dp-td-action">
                       <button className="dp-detail-btn" onClick={() => setDetailRow(row)}
                         title="Voir tous les champs">
@@ -419,7 +450,13 @@ export default function AdminDataPage() {
 
       {/* Modal détail */}
       {detailRow && (
-        <DetailModal row={detailRow} onClose={() => setDetailRow(null)} labels={formLabels} choiceMaps={choiceMaps} />
+        <DetailModal
+          row={detailRow}
+          onClose={() => setDetailRow(null)}
+          labels={formLabels}
+          choiceMaps={choiceMaps}
+          questionMaps={questionMaps}
+        />
       )}
 
       <style>{STYLES}</style>
@@ -433,7 +470,6 @@ function FormBadge({ form, labels }: { form: string; labels?: { form1: string; f
   const isGenre = String(form).includes("genre");
   const lbl1 = labels?.form1 || "Genre & Inclusion";
   const lbl2 = labels?.form2 || "Vie estudiantine";
-  // Label dynamique : on affiche le form_id nettoyé si inconnu
   const label = isGenre ? lbl1
     : String(form).includes("vie") ? lbl2
     : form || "—";
@@ -447,13 +483,20 @@ function FormBadge({ form, labels }: { form: string; labels?: { form1: string; f
   );
 }
 
-function DetailModal({ row, onClose, labels, choiceMaps }: {
-  row: Submission; onClose: () => void; labels?: { form1: string; form2: string };
+function DetailModal({ row, onClose, labels, choiceMaps, questionMaps }: {
+  row: Submission;
+  onClose: () => void;
+  labels?: { form1: string; form2: string };
   choiceMaps?: { map1: Record<string, Record<string, string>>; map2: Record<string, Record<string, string>> };
+  questionMaps?: { map1: Record<string, string>; map2: Record<string, string> };
 }) {
   const entries = Object.entries(row.payload || {})
     .filter(([k]) => !["formhub/uuid", "meta/instanceID", "meta/rootUuid",
       "_attachments", "_geolocation", "_tags", "_notes", "_validation_status"].includes(k));
+
+  // Carte de libellés de questions pour ce formulaire
+  const f = String(row.form || "").toLowerCase();
+  const qMap = f.includes("genre") ? questionMaps?.map1 : questionMaps?.map2;
 
   return (
     <div className="dp-modal-overlay" onClick={onClose}>
@@ -470,8 +513,8 @@ function DetailModal({ row, onClose, labels, choiceMaps }: {
         <div className="dp-modal-body">
           {entries.map(([k, v]) => (
             <div key={k} className="dp-modal-row">
-              <span className="dp-modal-key">{humanizeKey(k)}</span>
-              <span className="dp-modal-val">{decodeValue(v, choiceMaps && choicesFor(row.form, k, choiceMaps))}</span>
+              <span className="dp-modal-key">{humanizeKey(k, qMap)}</span>
+              <span className="dp-modal-val">{displayKoboValue(v, choiceMaps && choicesFor(row.form, k, choiceMaps))}</span>
             </div>
           ))}
         </div>
