@@ -14,73 +14,171 @@
  */
 
 // ─── Table de mapping : code Kobo → label français avec accents ───────────
-// La cle est la partie APRES les chiffres__ (en minuscules, underscores conserves)
-// Ajoutez ici toute nouvelle option rencontree dans vos formulaires.
 export const KOBO_LABEL_MAP: Record<string, string> = {
   // ── Satisfaction / Qualite ──────────────────────────────────────────────
-  'tr_s_satisfait_e':         'Tres satisfait(e)',
+  'tr_s_satisfait_e':         'Très satisfait(e)',
   'satisfait_e':              'Satisfait(e)',
   'peu_satisfait_e':          'Peu satisfait(e)',
   'pas_du_tout_satisfait_e':  'Pas du tout satisfait(e)',
-  'tr_s_insatisfait_e':       'Tres insatisfait(e)',
+  'tr_s_insatisfait_e':       'Très insatisfait(e)',
 
   // ── Frequence ───────────────────────────────────────────────────────────
-  'tr_s_souvent':             'Tres souvent',
+  'tr_s_souvent':             'Très souvent',
   'souvent':                  'Souvent',
   'parfois':                  'Parfois',
   'rarement':                 'Rarement',
   'jamais':                   'Jamais',
 
   // ── Qualite de vie / Services ────────────────────────────────────────────
-  'tr_s_bonne':               'Tres bonne',
+  'tr_s_bonne':               'Très bonne',
   'bonne':                    'Bonne',
   'moyenne':                  'Moyenne',
   'mauvaise':                 'Mauvaise',
-  'tr_s_mauvaise':            'Tres mauvaise',
+  'tr_s_mauvaise':            'Très mauvaise',
 
   // ── Adaptation / Handicap ───────────────────────────────────────────────
-  'tr_s_adapt_es':            'Tres adaptees',
-  'tr_s_adapt_e':             'Tres adapte(e)',
-  'moyennement_adapt_es':     'Moyennement adaptees',
-  'moyennement_adapt_e':      'Moyennement adapte(e)',
-  'peu_adapt_es':             'Peu adaptees',
-  'peu_adapt_e':              'Peu adapte(e)',
-  'pas_adapt_es':             'Pas adaptees',
-  'pas_adapt_e':              'Pas adapte(e)',
-  'pas_du_tout_adapt_e':      'Pas du tout adapte(e)',
+  'tr_s_adapt_es':            'Très adaptées',
+  'tr_s_adapt_e':             'Très adapté(e)',
+  'moyennement_adapt_es':     'Moyennement adaptées',
+  'moyennement_adapt_e':      'Moyennement adapté(e)',
+  'peu_adapt_es':             'Peu adaptées',
+  'peu_adapt_e':              'Peu adapté(e)',
+  'pas_adapt_es':             'Pas adaptées',
+  'pas_adapt_e':              'Pas adapté(e)',
+  'pas_du_tout_adapt_e':      'Pas du tout adapté(e)',
 
-  // ── Oui / Non / Autres reponses simples ─────────────────────────────────
+  // ── Oui / Non ────────────────────────────────────────────────────────────
   'oui':                      'Oui',
   'non':                      'Non',
   'ne_sait_pas':              'Ne sait pas',
   'sans_opinion':             'Sans opinion',
+  'autre':                    'Autre',
+  'aucun':                    'Aucun',
 
   // ── Genre / Identite ────────────────────────────────────────────────────
   'homme':                    'Homme',
   'femme':                    'Femme',
   'non_binaire':              'Non binaire',
-  'pr_f_re_ne_pas_r_pondre':  'Prefere ne pas repondre',
-  'prefer_not_to_say':        'Prefere ne pas repondre',
+  'pr_f_re_ne_pas_r_pondre':  'Préfère ne pas répondre',
+  'prefer_not_to_say':        'Préfère ne pas répondre',
 
   // ── Niveaux d'accord ────────────────────────────────────────────────────
-  'tout_fait_d_accord':       'Tout a fait d\'accord',
-  'd_accord':                 'D\'accord',
+  'tout_fait_d_accord':       "Tout à fait d'accord",
+  'd_accord':                 "D'accord",
   'neutre':                   'Neutre',
-  'pas_d_accord':             'Pas d\'accord',
-  'pas_du_tout_d_accord':     'Pas du tout d\'accord',
+  'pas_d_accord':             "Pas d'accord",
+  'pas_du_tout_d_accord':     "Pas du tout d'accord",
 
-  // ── Logement ────────────────────────────────────────────────────────────
-  'r_sidence_universitaire':  'Residence universitaire',
-  'logement_priv_':           'Logement prive',
-  'chez_les_parents':         'Chez les parents',
-  'colocation':               'Colocation',
+  // ── Logement type ────────────────────────────────────────────────────────
+  'r_sidence_universitaire':              'Résidence universitaire',
+  'cit_universitaire':                    'Cité universitaire',
+  'logement_priv_':                       'Logement privé',
+  'logement_lou_mis_disposition':         'Logement loué / mis à disposition',
+  'logement_lou_mis_disposi':             'Logement loué / mis à disposition',
+  'chez_les_parents':                     'Chez les parents',
+  'colocation':                           'Colocation',
+  'chez_d_autres_membres_de_la_fa':       "Chez d'autres membres de la famille",
+  'chez_d_autres_membres_de_la_famille':  "Chez d'autres membres de la famille",
+  'autre_h_bergement':                    'Autre hébergement',
+  'une_maison_familiale':                 'Une maison familiale',
+  'une_location':                         'Une location',
+  'une_propri_t_personnelle_acqu':        'Une propriété personnelle acquise',
 
-  // ── Annees / Niveaux ────────────────────────────────────────────────────
-  '1_re_ann_e':               '1ere annee',
-  '2_me_ann_e':               '2eme annee',
-  '3_me_ann_e':               '3eme annee',
+  // ── Annees / Niveaux d'etudes ────────────────────────────────────────────
+  '1_re_ann_e':               '1ère année',
+  '2_me_ann_e':               '2ème année',
+  '3_me_ann_e':               '3ème année',
   'master':                   'Master',
   'doctorat':                 'Doctorat',
+  'secondaire_lyc_e':         'Secondaire — Lycée',
+  'secondaire_coll_ge':       'Secondaire — Collège',
+  'primaire_epp':             'Primaire (EPP)',
+  'sup_rieur':                'Supérieur',
+  'aucun_e':                  'Aucun(e)',
+
+  // ── Electricite / Acces reseau ───────────────────────────────────────────
+  'acc_s_au_r_seau_public':                   'Accès au réseau public (JIRAMA)',
+  'acc_s_au_r_seau_public_jirama_':           'Accès au réseau public (JIRAMA)',
+  'acc_s_un_r_seau_priv_':                    'Accès à un réseau privé',
+  'pas_d_acc_s_r_seau_et_utilisatio':         "Pas d'accès réseau, utilisation de groupe électrogène",
+  'pas_d_lectricit_du_tout':                  "Pas d'électricité du tout",
+
+  // ── Situation matrimoniale ───────────────────────────────────────────────
+  'c_libataire_sans_enfant':                  'Célibataire sans enfant',
+  'c_libataire_avec_enfant':                  'Célibataire avec enfant',
+  'mari_concubinage_avec_enfant':             'Marié(e) / Concubinage avec enfant',
+  'mari_concubinage_sans_enfant':             'Marié(e) / Concubinage sans enfant',
+
+  // ── Revenus parents ──────────────────────────────────────────────────────
+  'activit_informelle':                             'Activité informelle',
+  'activit_professionnelle_forme_':                 'Activité professionnelle formelle',
+  'activit_profesionnelle_formel':                  'Activité professionnelle formelle',
+  'activit_profesionnelle_formel_ac':               'Activité professionnelle formelle (agricole)',
+  'activit_professionnelle_forme_r':                'Activité professionnelle formelle (retraité)',
+  'rente_ex_issue_de_location':                     'Rente / issue de location',
+  'activit_informelle_rente_ex_issue':              'Activité informelle / Rente',
+  'maximum_6_000_mga_par_jour':                     'Maximum 6 000 MGA / jour',
+  'entre_6_000_et_8_000_mga_par_j':                 'Entre 6 000 et 8 000 MGA / jour',
+  'entre_8_000_et_14_000_mga_par':                  'Entre 8 000 et 14 000 MGA / jour',
+  'entre_410_000_et_1_000_000_mga':                 'Entre 410 000 et 1 000 000 MGA / mois',
+  'je_suis_incapable_d_es':                         "Je suis incapable d'estimer",
+  'je_ne_souhaite_pas_r_pondre':                    'Je ne souhaite pas répondre',
+  'je_ne_connais_pas_assez_les_re':                 'Je ne connais pas assez les revenus',
+
+  // ── Region d'origine ─────────────────────────────────────────────────────
+  'd_autres_r_gions_loign_es_toute':                "D'autres régions éloignées",
+  'des_autres_r_gions_limitrophes':                 'Des autres régions limitrophes',
+  'de_fianarantsoa_et_ses_alentou':                 'De Fianarantsoa et ses alentours',
+  'de_la_campagne_de_la_r_gion':                    'De la campagne de la région',
+
+  // ── Famille / Menage ─────────────────────────────────────────────────────
+  'm_nage_biparental_p_re_et_m_re':   'Ménage biparental — Père et Mère',
+  'm_nage_monoparental_p_re_ou':      'Ménage monoparental — Père ou Mère',
+  'elev_e_par_d_autres_personnes_i':  "Élevé(e) par d'autres personnes",
+  'elev_e_par_un_autre_membre_de':    'Élevé(e) par un autre membre de la famille',
+
+  // ── Difficultes logement / eloignement ───────────────────────────────────
+  'oui_l_loignement_est_le_plus_gr':  "Oui, l'éloignement est le plus grand problème",
+  'oui_l_loignement_est_parfois_pe':  "Oui, l'éloignement est parfois pénible",
+  'non_je_n_ai_de_probl_me_cause':    "Non, je n'ai pas de problème causé par la distance",
+  'non_au_contraire_je_suis_conte':   "Non, au contraire je suis content(e)",
+
+  // ── Difficulte acces logement ────────────────────────────────────────────
+  'oui_c_tait_tr_s_difficile':        "Oui, c'était très difficile",
+  'moyennent_difficile':              'Moyennement difficile',
+  'moyennement_difficile':            'Moyennement difficile',
+  'non_je_n_ai_pas_eu_de_probl_mes':  "Non, je n'ai pas eu de problèmes",
+
+  // ── Loyer mensuel ────────────────────────────────────────────────────────
+  'c_est_gratuit':            "C'est gratuit",
+  'entre_10_000_et_20_000_mga': 'Entre 10 000 et 20 000 MGA',
+  'entre_20_000_et_50_000_mga': 'Entre 20 000 et 50 000 MGA',
+  'plus_de_50_000_mga':       'Plus de 50 000 MGA',
+
+  // ── Satisfaction logement ────────────────────────────────────────────────
+  'elle_est_probl_matique_mais_je_n': "Elle est problématique mais je n'ai pas le choix",
+  'elle_est_correcte':                'Elle est correcte',
+  'elle_est_tr_s_satisfaisante':      'Elle est très satisfaisante',
+  'elle_est_insupportable':           'Elle est insupportable',
+
+  // ── Problemes logement ───────────────────────────────────────────────────
+  'trop_de_personnes_dans_le_m_me':   'Trop de personnes dans le même espace',
+  'le_prix_le_manque_de_place_exig':  'Le prix, le manque de place / exiguïté',
+  'le_prix_trop_de_personnes_dans':   'Le prix, trop de personnes dans le même espace',
+  'le_prix_l_ins_curit_autres':       "Le prix, l'insécurité, autres",
+  'le_prix_l_insalubrit_autres':      "Le prix, l'insalubrité, autres",
+  'l_ins_curit':                      "L'insécurité",
+  'le_prix':                          'Le prix',
+
+  // ── Comment trouve le logement ───────────────────────────────────────────
+  'gr_ce_une_association_r_gion':   'Grâce à une association / région',
+  'gr_ce_des_amis':                 'Grâce à des amis',
+  'gr_ce_une_annonce':              'Grâce à une annonce',
+  'gr_ce_un_membre_de_la_famill':   'Grâce à un membre de la famille',
+
+  // ── Bizutage ─────────────────────────────────────────────────────────────
+  'c_est_n_cessaire_pour_montrer':  "C'est nécessaire pour montrer son appartenance",
+  'c_est_amusant':                  "C'est amusant",
 
   // Patterns courts generes par Kobo (chiffre seul)
   '1':  'Oui',
@@ -88,11 +186,6 @@ export const KOBO_LABEL_MAP: Record<string, string> = {
 };
 
 // ─── Restauration heuristique des accents francais ────────────────────────
-// Kobo remplace les caracteres accentues par des underscores lors de la
-// generation des noms de choix. On ne peut pas deviner a 100% l'accent
-// d'origine (e/e/e, a/a, etc.), mais on peut corriger les mots francais les
-// plus frequents dans les enquetes (tres, etre, etudiant, a l'aise, etc.)
-// via une table de mots -> mots accentues, appliquee apres la capitalisation.
 const ACCENT_WORD_FIXES: Record<string, string> = {
   'tres':        'très',
   'tr s':        'très',
@@ -139,11 +232,34 @@ const ACCENT_WORD_FIXES: Record<string, string> = {
   'gargotes':    'gargotes',
   'repas':       'repas',
   'klsmd':       'klsmd',
+  // Ajouts
+  'acces':       'accès',
+  'acc s':       'accès',
+  'reseau':      'réseau',
+  'r seau':      'réseau',
+  'electricite': 'électricité',
+  'lectricit':   'électricité',
+  'secondaire':  'Secondaire',
+  'primaire':    'Primaire',
+  'superieur':   'Supérieur',
+  'celibataire': 'célibataire',
+  'menage':      'ménage',
+  'm nage':      'ménage',
+  'biparental':  'biparental',
+  'monoparental':'monoparental',
+  'region':      'région',
+  'r gion':      'région',
+  'eloignement': 'éloignement',
+  'gratuit':     'gratuit',
+  'problema':    'problèma',
+  'probleme':    'problème',
+  'probl me':    'problème',
+  'cite':        'cité',
+  'loge':        'logé',
+  'loyer':       'loyer',
 };
 
-// ─── Phrases completes courantes (formulaires "satisfaction" / "aisance") ──
-// Cle = version normalisee (espaces, minuscules, sans accents) du libelle
-// produit par heuristicDecode AVANT correction d'accents.
+// ─── Phrases completes courantes ──────────────────────────────────────────
 const PHRASE_FIXES: Record<string, string> = {
   // ── Niveau d'aisance ────────────────────────────────────────────────────
   'je suis tr s l aise pour suivre d':        "Je suis très à l'aise pour suivre des cours",
@@ -174,7 +290,7 @@ const PHRASE_FIXES: Record<string, string> = {
   'je prends des cours de fran ai':           "Je prends des cours de français",
   'je prends des cours de francais':          "Je prends des cours de français",
 
-  // ── Lieux de connexion / acces internet ────────────────────────────────
+  // ── Lieux de connexion ───────────────────────────────────────────────────
   'dans un cybercaf':                         "Dans un cybercafé",
   'dans un cybercafe':                        "Dans un cybercafé",
   'chez vous wifi':                           "Chez vous (wifi)",
@@ -191,7 +307,7 @@ const PHRASE_FIXES: Record<string, string> = {
   'pas de repas entre les repas principaux':  "Pas de repas entre les repas principaux",
   'dans les gargotes':                        "Dans les gargotes",
 
-  // ── Options generiques de formulaire (codes Kobo non renommes) ──────────
+  // ── Options generiques ───────────────────────────────────────────────────
   'option 1':                                 "Option 1",
   'option 2':                                 "Option 2",
   'option 1 option 2':                        "Option 1, Option 2",
@@ -200,6 +316,102 @@ const PHRASE_FIXES: Record<string, string> = {
   'option 1 option 2 la kslmd':               "Option 1, Option 2, autre (saisie libre)",
   'option 1 option 2 dans un espace d':       "Option 1, Option 2, dans un espace de discussion",
   'la kslmd':                                 "Autre (saisie libre)",
+
+  // ── Electricite / Acces ──────────────────────────────────────────────────
+  'acc s au r seau public':                   "Accès au réseau public (JIRAMA)",
+  'acc s un r seau priv':                     "Accès à un réseau privé",
+  'pas d acc s r seau et utilisatio':         "Pas d'accès réseau, groupe électrogène",
+  'pas d lectricit du tout':                  "Pas d'électricité du tout",
+
+  // ── Niveau d'etudes ──────────────────────────────────────────────────────
+  'secondaire lyc e':                         "Secondaire — Lycée",
+  'secondaire coll ge':                       "Secondaire — Collège",
+  'primaire epp':                             "Primaire (EPP)",
+
+  // ── Logement ─────────────────────────────────────────────────────────────
+  'cit universitaire':                        "Cité universitaire",
+  'logement lou mis disposi':                 "Logement loué / mis à disposition",
+  'logement lou mis disposition':             "Logement loué / mis à disposition",
+  'chez d autres membres de la fa':           "Chez d'autres membres de la famille",
+  'autre h bergement':                        "Autre hébergement",
+  'une maison familiale':                     "Une maison familiale",
+  'une location':                             "Une location",
+  'une propri t personnelle acqu':            "Une propriété personnelle acquise",
+
+  // ── Situation matrimoniale ───────────────────────────────────────────────
+  'c libataire sans enfant':                  "Célibataire sans enfant",
+  'c libataire avec enfant':                  "Célibataire avec enfant",
+  'mari concubinage avec enfant':             "Marié(e) / Concubinage avec enfant",
+  'mari concubinage sans enfant':             "Marié(e) / Concubinage sans enfant",
+
+  // ── Revenus ──────────────────────────────────────────────────────────────
+  'activit informelle':                       "Activité informelle",
+  'activit professionnelle forme':            "Activité professionnelle formelle",
+  'activit profesionnelle formel':            "Activité professionnelle formelle",
+  'activit profesionnelle formel ac':         "Activité professionnelle formelle (agricole)",
+  'activit professionnelle forme r':          "Activité professionnelle formelle (retraité)",
+  'rente ex issue de location':               "Rente / issue de location",
+  'activit informelle rente ex issue':        "Activité informelle / Rente",
+  'maximum 6 000 mga par jour':               "Maximum 6 000 MGA / jour",
+  'entre 6 000 et 8 000 mga par j':           "Entre 6 000 et 8 000 MGA / jour",
+  'entre 8 000 et 14 000 mga par':            "Entre 8 000 et 14 000 MGA / jour",
+  'entre 410 000 et 1 000 000 mga':           "Entre 410 000 et 1 000 000 MGA / mois",
+  'je suis incapable d es':                   "Je suis incapable d'estimer",
+  'je ne souhaite pas r pondre':              "Je ne souhaite pas répondre",
+  'je ne connais pas assez les re':           "Je ne connais pas assez les revenus",
+
+  // ── Region ───────────────────────────────────────────────────────────────
+  'd autres r gions loign es toute':          "D'autres régions éloignées",
+  'des autres r gions limitrophes':           "Des autres régions limitrophes",
+  'de fianarantsoa et ses alentou':           "De Fianarantsoa et ses alentours",
+  'de la campagne de la r gion':              "De la campagne de la région",
+
+  // ── Famille / Menage ─────────────────────────────────────────────────────
+  'm nage biparental p re et m re':           "Ménage biparental — Père et Mère",
+  'm nage monoparental p re ou':              "Ménage monoparental — Père ou Mère",
+  'elev e par d autres personnes i':          "Élevé(e) par d'autres personnes",
+  'elev e par un autre membre de':            "Élevé(e) par un autre membre de la famille",
+
+  // ── Eloignement ──────────────────────────────────────────────────────────
+  'oui l loignement est le plus gr':          "Oui, l'éloignement est le plus grand problème",
+  'oui l loignement est parfois pe':          "Oui, l'éloignement est parfois pénible",
+  'non je n ai de probl me cause':            "Non, je n'ai pas de problème causé par la distance",
+  'non au contraire je suis conte':           "Non, au contraire je suis content(e)",
+
+  // ── Difficulte acces logement ────────────────────────────────────────────
+  'oui c tait tr s difficile':                "Oui, c'était très difficile",
+  'moyennent difficile':                      "Moyennement difficile",
+  'non je n ai pas eu de probl mes':          "Non, je n'ai pas eu de problèmes",
+
+  // ── Loyer ────────────────────────────────────────────────────────────────
+  'c est gratuit':            "C'est gratuit",
+  'entre 10 000 et 20 000 mga': "Entre 10 000 et 20 000 MGA",
+  'entre 20 000 et 50 000 mga': "Entre 20 000 et 50 000 MGA",
+  'plus de 50 000 mga':       "Plus de 50 000 MGA",
+
+  // ── Satisfaction logement ────────────────────────────────────────────────
+  'elle est probl matique mais je n': "Elle est problématique mais je n'ai pas le choix",
+  'elle est correcte':                "Elle est correcte",
+  'elle est tr s satisfaisante':      "Elle est très satisfaisante",
+  'elle est insupportable':           "Elle est insupportable",
+
+  // ── Problemes logement ───────────────────────────────────────────────────
+  'trop de personnes dans le m me':   "Trop de personnes dans le même espace",
+  'le prix le manque de place exig':  "Le prix, le manque de place / exiguïté",
+  'le prix trop de personnes dans':   "Le prix, trop de personnes dans le même espace",
+  'le prix l ins curit autres':       "Le prix, l'insécurité, autres",
+  'le prix l insalubrit autres':      "Le prix, l'insalubrité, autres",
+  'l ins curit':                      "L'insécurité",
+
+  // ── Comment trouve logement ──────────────────────────────────────────────
+  'gr ce une association r gion':     "Grâce à une association / région",
+  'gr ce des amis':                   "Grâce à des amis",
+  'gr ce une annonce':                "Grâce à une annonce",
+  'gr ce un membre de la famill':     "Grâce à un membre de la famille",
+
+  // ── Bizutage ─────────────────────────────────────────────────────────────
+  'c est n cessaire pour montrer':    "C'est nécessaire pour montrer son appartenance",
+  'c est amusant':                    "C'est amusant",
 };
 
 function normalizeKey(raw: string): string {
@@ -210,20 +422,10 @@ function normalizeKey(raw: string): string {
     .trim();
 }
 
-// ─── Normalisation heuristique pour les codes inconnus ────────────────────
-// Appliquee seulement si le code n'est pas dans KOBO_LABEL_MAP.
-// Strategie :
-//   1. Tente une correspondance de phrase complete (PHRASE_FIXES)
-//   2. Sinon, decoupe en mots, corrige les mots francais connus
-//      (ACCENT_WORD_FIXES), puis capitalise.
 function heuristicDecode(raw: string): string {
   const normalized = normalizeKey(raw);
 
-  // 1. Phrase complete connue (avec ou sans troncature "...")
-  // Retire une éventuelle ellipse d'affichage ("...") et le mot partiel
-  // qui la précède (ex: "compre..." -> "compre" -> retiré)
   let cleaned = normalized.replace(/\.{2,}$/, '').trim();
-  // Retire le dernier mot s'il fait moins de 4 caractères (probable troncature)
   const lastWordMatch = cleaned.match(/^(.*)\s(\S{1,4})$/);
   const withoutShortTail = lastWordMatch ? lastWordMatch[1] : cleaned;
 
@@ -232,11 +434,8 @@ function heuristicDecode(raw: string): string {
   if (PHRASE_FIXES[withoutShortTail]) return PHRASE_FIXES[withoutShortTail];
 
   const trimmed = cleaned.replace(/\s*(d|de|du|des|l|la|le|les|s)$/, '$1').trim();
-  if (PHRASE_FIXES[normalized]) return PHRASE_FIXES[normalized];
   if (PHRASE_FIXES[trimmed]) return PHRASE_FIXES[trimmed];
 
-  // 2. Recherche par prefixe : si une phrase connue commence comme le code
-  //    (utile pour les valeurs tronquees a l'affichage)
   for (const [key, value] of Object.entries(PHRASE_FIXES)) {
     if (key.startsWith(cleaned) || cleaned.startsWith(key)
       || key.startsWith(withoutShortTail) || withoutShortTail.startsWith(key)) {
@@ -244,12 +443,10 @@ function heuristicDecode(raw: string): string {
     }
   }
 
-  // 3. Mot par mot : corrige les mots francais connus, puis capitalise
   const words = normalized.split(' ');
   const fixedWords = words.map(w => ACCENT_WORD_FIXES[w] || w);
   let result = fixedWords.join(' ');
 
-  // Gestion des contractions ("l aise" -> "l'aise", "j utilise" -> "j'utilise")
   result = result
     .replace(/\bl aise\b/g, "l'aise")
     .replace(/\bj utilise\b/g, "j'utilise")
@@ -258,32 +455,18 @@ function heuristicDecode(raw: string): string {
     .replace(/\bqu il\b/g, "qu'il")
     .replace(/\bqu elle\b/g, "qu'elle");
 
-  // Capitalise chaque mot (sauf apres une apostrophe)
   result = result.replace(/(^|\s)([a-zàâéèêîïôûü])/g, (_m, sep, c) => sep + c.toUpperCase());
 
   return result.trim();
 }
 
-// ─── Fonction principale de decodage ──────────────────────────────────────
-/**
- * Decode une valeur Kobo en label lisible.
- *
- * Formats geres :
- *   "1__Tr_s_satisfait_e"  → "Tres satisfait(e)"  (via table de mapping)
- *   "oui"                  → "Oui"                (via table directe)
- *   "2024-01-15T10:30:00Z" → "15/01/2024 10:30"   (dates ISO)
- *   ["a", "b"]             → "a, b"               (tableaux)
- *   null / undefined       → ""                   (vide)
- */
 export function decodeKoboValue(value: unknown, choices?: Record<string, string>): string {
   if (value === null || value === undefined || value === '') return '';
 
-  // Tableaux : decoder chaque element
   if (Array.isArray(value)) {
     return value.map(v => decodeKoboValue(v, choices)).filter(Boolean).join(', ');
   }
 
-  // Objets : serialiser (cas rare)
   if (typeof value === 'object') {
     return JSON.stringify(value);
   }
@@ -291,10 +474,7 @@ export function decodeKoboValue(value: unknown, choices?: Record<string, string>
   const str = String(value).trim();
   if (!str) return '';
 
-  // ── Carte dynamique (depuis le schema KoboToolbox) ───────────────────────
-  // Source de verite : reflete automatiquement les libelles definis dans le
-  // formulaire Kobo (avec accents), y compris pour les valeurs select_multiple
-  // qui contiennent plusieurs codes separes par des espaces.
+  // ── Carte dynamique (depuis le schema KoboToolbox) ────────────────────
   if (choices) {
     if (choices[str]) return choices[str];
     if (str.includes(' ')) {
@@ -305,7 +485,7 @@ export function decodeKoboValue(value: unknown, choices?: Record<string, string>
     }
   }
 
-  // ── Dates ISO ────────────────────────────────────────────────────────────
+  // ── Dates ISO ─────────────────────────────────────────────────────────
   if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
     try {
       return new Date(str).toLocaleString('fr-FR', {
@@ -315,10 +495,10 @@ export function decodeKoboValue(value: unknown, choices?: Record<string, string>
     } catch { return str; }
   }
 
-  // ── Numeros seuls (IDs Kobo) ─────────────────────────────────────────────
+  // ── Numeros seuls ─────────────────────────────────────────────────────
   if (/^\d+$/.test(str)) return str;
 
-  // ── Pattern Kobo : "123__code_label" ou "1__label" ──────────────────────
+  // ── Pattern Kobo : "123__code_label" ──────────────────────────────────
   const koboMatch = str.match(/^\d+__(.+)$/);
   if (koboMatch) {
     const codePart = koboMatch[1].toLowerCase();
@@ -326,16 +506,11 @@ export function decodeKoboValue(value: unknown, choices?: Record<string, string>
     return heuristicDecode(koboMatch[1]);
   }
 
-  // ── Code direct sans prefixe numerique ──────────────────────────────────
+  // ── Code direct (underscore) ──────────────────────────────────────────
   const lower = str.toLowerCase();
   if (KOBO_LABEL_MAP[lower]) return KOBO_LABEL_MAP[lower];
 
-  // ── Heuristique generique ────────────────────────────────────────────────
-  // Decode si ca ressemble a un code Kobo mal formate :
-  //  - contient un underscore (avec ou sans espace), ex: "option_1 option_2"
-  //  - OU ressemble a un libelle Kobo deja partiellement "humanise" mais sans
-  //    accents (mots Capitalises separes par des espaces, sans ponctuation),
-  //    ex: "Je Suis Tr S L Aise Pour Suivre D"
+  // ── Heuristique si code Kobo ──────────────────────────────────────────
   const looksLikeMangledKobo =
     str.includes('_') ||
     (/^[A-Z][a-zàâéèêîïôûü]*(\s[A-Za-z][a-zàâéèêîïôûü]*)*(\s?\.{2,})?$/.test(str) && PHRASE_FIXES_HAS_MATCH(str));
@@ -347,9 +522,6 @@ export function decodeKoboValue(value: unknown, choices?: Record<string, string>
   return str;
 }
 
-// Verifie si une chaine (normalisee) correspond a une entree connue de
-// PHRASE_FIXES (exacte, tronquee, ou par prefixe) — evite de toucher au
-// texte libre qui ne correspond a aucun motif connu.
 function PHRASE_FIXES_HAS_MATCH(str: string): boolean {
   const normalized = normalizeKey(str);
   const cleaned = normalized.replace(/\.{2,}$/, '').trim();
@@ -363,13 +535,11 @@ function PHRASE_FIXES_HAS_MATCH(str: string): boolean {
   return false;
 }
 
-// ─── Decodage d'une valeur pour l'affichage UI (avec fallback "—") ─────────
 export function displayKoboValue(value: unknown, choices?: Record<string, string>): string {
   const decoded = decodeKoboValue(value, choices);
   return decoded || '—';
 }
 
-// ─── Decodage d'une valeur pour l'export (vide = chaine vide) ─────────────
 export function exportKoboValue(value: unknown, choices?: Record<string, string>): string {
   return decodeKoboValue(value, choices);
 }
